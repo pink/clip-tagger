@@ -79,24 +79,26 @@ func (s *State) NextTakeNumber(groupID string) int {
 }
 
 // GetClassification finds classification for a file
-func (s *State) GetClassification(filename string) *Classification {
-	for i := range s.Classifications {
-		if s.Classifications[i].File == filename {
-			return &s.Classifications[i]
+// Returns the classification and true if found, or an empty classification and false if not found
+func (s *State) GetClassification(filename string) (Classification, bool) {
+	for _, c := range s.Classifications {
+		if c.File == filename {
+			return c, true
 		}
 	}
-	return nil
+	return Classification{}, false
 }
 
 // AddOrUpdateClassification adds or updates a classification
 func (s *State) AddOrUpdateClassification(filename, groupID string) {
-	// Remove existing classification if present
-	for i := range s.Classifications {
-		if s.Classifications[i].File == filename {
-			s.Classifications = append(s.Classifications[:i], s.Classifications[i+1:]...)
-			break
+	// Remove existing classification if present by building new slice
+	newClassifications := make([]Classification, 0, len(s.Classifications))
+	for _, c := range s.Classifications {
+		if c.File != filename {
+			newClassifications = append(newClassifications, c)
 		}
 	}
+	s.Classifications = newClassifications
 
 	// Add new classification
 	takeNum := s.NextTakeNumber(groupID)
