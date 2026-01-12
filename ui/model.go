@@ -51,6 +51,7 @@ type Model struct {
 	startupData        *StartupData
 	classificationData *ClassificationData
 	groupSelectionData *GroupSelectionData
+	groupInsertionData *GroupInsertionData
 	files              []string // List of files being classified
 	currentFileIndex   int      // Current file index in files list
 }
@@ -65,6 +66,7 @@ func NewModel(appState *state.State, directory string) Model {
 		startupData:        nil,
 		classificationData: nil,
 		groupSelectionData: nil,
+		groupInsertionData: nil,
 		files:              []string{},
 		currentFileIndex:   0,
 	}
@@ -158,6 +160,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
+				// If transitioning to group insertion, initialize it
+				if result.Screen == ScreenGroupInsertion {
+					return m, func() tea.Msg {
+						return GroupInsertionInitialized{
+							CurrentFile: m.classificationData.CurrentFile,
+						}
+					}
+				}
 				return m, nil
 			}
 			// result.Screen == -2 means no screen change
@@ -214,6 +224,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// result.Screen == -2 means no screen change, continue
 		}
 
+		// Handle group insertion screen keys
+		if m.currentScreen == ScreenGroupInsertion && m.groupInsertionData != nil {
+			var keyMsg string
+			switch msg.Type {
+			case tea.KeyCtrlC:
+				keyMsg = "ctrl+c"
+			case tea.KeyEnter:
+				keyMsg = "enter"
+			case tea.KeyEsc:
+				keyMsg = "esc"
+			case tea.KeyUp:
+				keyMsg = "up"
+			case tea.KeyDown:
+				keyMsg = "down"
+			case tea.KeyBackspace:
+				keyMsg = "backspace"
+			case tea.KeySpace:
+				keyMsg = " "
+			default:
+				keyMsg = msg.String()
+			}
+
+			result := GroupInsertionUpdate(m.groupInsertionData, keyMsg)
+			if result.Screen == -1 {
+				return m, tea.Quit
+			} else if result.Screen >= 0 {
+				m.currentScreen = result.Screen
+				// If a group was inserted, send GroupInserted message
+				if result.InsertedGroupID != "" {
+					return m, func() tea.Msg {
+						return GroupInserted{
+							GroupID:   result.InsertedGroupID,
+							GroupName: result.InsertedGroupName,
+							Order:     result.InsertedOrder,
+						}
+					}
+				}
+				return m, nil
+			}
+			// result.Screen == -2 means no screen change, continue
+		}
+
 		// Global quit handler
 		switch msg.Type {
 		case tea.KeyCtrlC:
@@ -240,6 +292,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// For now, just transition back to classification screen
 		return m, nil
 
+	case GroupInsertionInitialized:
+		m.groupInsertionData = NewGroupInsertionData(m.state, msg.CurrentFile)
+		return m, nil
+
+	case GroupInserted:
+		// Group was inserted, add to state and transition back to classification screen
+		// Create the group with the specified order
+		newGroup := state.Group{
+			ID:    msg.GroupID,
+			Name:  msg.GroupName,
+			Order: msg.Order,
+		}
+
+		// Insert group at the correct position and renumber
+		insertGroupAtPosition(&m.state.Groups, newGroup, msg.Order)
+
+		return m, nil
+
 	case TransitionToScreen:
 		m.currentScreen = msg.Screen
 		return m, nil
@@ -254,6 +324,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// insertGroupAtPosition inserts a group at the specified order position and renumbers all groups
+func insertGroupAtPosition(groups *[]state.Group, newGroup state.Group, order int) {
+	// Find the insertion index based on order
+	insertIndex := 0
+	for i, g := range *groups {
+		if g.Order >= order {
+			insertIndex = i
+			break
+		}
+		insertIndex = i + 1
+	}
+
+	// Insert the group at the correct position
+	*groups = append(*groups, state.Group{})
+	copy((*groups)[insertIndex+1:], (*groups)[insertIndex:])
+	(*groups)[insertIndex] = newGroup
+
+	// Renumber all groups to maintain sequential order
+	for i := range *groups {
+		(*groups)[i].Order = i + 1
+	}
 }
 
 // View renders the current screen
@@ -280,7 +373,10 @@ func (m Model) View() string {
 		}
 		return "Loading group selection...\n\nPress Ctrl+C to quit"
 	case ScreenGroupInsertion:
-		return "Group Insertion Screen\n\nPress Ctrl+C to quit"
+		if m.groupInsertionData != nil {
+			return GroupInsertionView(m.groupInsertionData)
+		}
+		return "Loading group insertion...\n\nPress Ctrl+C to quit"
 	case ScreenReview:
 		return "Review Screen\n\nPress Ctrl+C to quit"
 	case ScreenComplete:

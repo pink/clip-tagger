@@ -40,3 +40,15 @@ type GroupSelected struct {
 	GroupID   string
 	GroupName string
 }
+
+// GroupInsertionInitialized is sent when group insertion screen is initialized
+type GroupInsertionInitialized struct {
+	CurrentFile string
+}
+
+// GroupInserted is sent when a new group is inserted
+type GroupInserted struct {
+	GroupID   string
+	GroupName string
+	Order     int
+}
