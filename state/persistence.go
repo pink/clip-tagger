@@ -53,6 +53,10 @@ func StateExists(dir string) bool {
 
 // BackupState creates a backup of the state file
 func BackupState(dir string) error {
+	if !StateExists(dir) {
+		return fmt.Errorf("state file does not exist")
+	}
+
 	statePath := StateFilePath(dir)
 	backupPath := statePath + ".bak"
 

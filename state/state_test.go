@@ -2,6 +2,8 @@
 package state
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -289,6 +291,22 @@ func TestState_SaveAndLoad(t *testing.T) {
 	if len(loaded.Groups) != 1 {
 		t.Errorf("expected 1 group, got %d", len(loaded.Groups))
 	}
+
+	// Verify JSON uses 2-space indentation (not tabs)
+	content, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("failed to read saved file: %v", err)
+	}
+	contentStr := string(content)
+
+	// Check for 2-space indentation pattern
+	if !strings.Contains(contentStr, "  \"directory\"") {
+		t.Error("expected JSON to use 2-space indentation")
+	}
+	// Ensure no tabs are used
+	if strings.Contains(contentStr, "\t") {
+		t.Error("expected JSON to not contain tabs")
+	}
 }
 
 func TestLoad_NonExistent(t *testing.T) {
@@ -296,4 +314,175 @@ func TestLoad_NonExistent(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for nonexistent file")
 	}
+}
+
+func TestStateFilePath(t *testing.T) {
+	t.Run("returns correct path with directory", func(t *testing.T) {
+		dir := "/test/dir"
+		expected := "/test/dir/.clip-tagger-state.json"
+		result := StateFilePath(dir)
+
+		if result != expected {
+			t.Errorf("expected '%s', got '%s'", expected, result)
+		}
+	})
+
+	t.Run("handles directory with trailing slash", func(t *testing.T) {
+		dir := "/test/dir/"
+		result := StateFilePath(dir)
+
+		// filepath.Join should handle trailing slashes correctly
+		if !strings.Contains(result, ".clip-tagger-state.json") {
+			t.Errorf("expected path to contain state filename, got '%s'", result)
+		}
+	})
+
+	t.Run("handles relative directory", func(t *testing.T) {
+		dir := "."
+		result := StateFilePath(dir)
+		expected := ".clip-tagger-state.json"
+
+		if result != expected {
+			t.Errorf("expected '%s', got '%s'", expected, result)
+		}
+	})
+}
+
+func TestStateExists(t *testing.T) {
+	t.Run("returns true when state file exists", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		statePath := StateFilePath(tmpDir)
+
+		// Create a state file
+		state := NewState(tmpDir, SortByModifiedTime)
+		err := state.Save(statePath)
+		if err != nil {
+			t.Fatalf("failed to create state file: %v", err)
+		}
+
+		// Verify StateExists returns true
+		if !StateExists(tmpDir) {
+			t.Error("expected StateExists to return true when file exists")
+		}
+	})
+
+	t.Run("returns false when state file does not exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Verify StateExists returns false
+		if StateExists(tmpDir) {
+			t.Error("expected StateExists to return false when file does not exist")
+		}
+	})
+
+	t.Run("returns false for nonexistent directory", func(t *testing.T) {
+		dir := "/nonexistent/directory/path"
+
+		if StateExists(dir) {
+			t.Error("expected StateExists to return false for nonexistent directory")
+		}
+	})
+}
+
+func TestBackupState(t *testing.T) {
+	t.Run("returns error when state file does not exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		err := BackupState(tmpDir)
+		if err == nil {
+			t.Fatal("expected error when state file does not exist")
+		}
+
+		expectedErrMsg := "state file does not exist"
+		if !strings.Contains(err.Error(), expectedErrMsg) {
+			t.Errorf("expected error message to contain '%s', got '%s'", expectedErrMsg, err.Error())
+		}
+	})
+
+	t.Run("creates backup successfully", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		statePath := StateFilePath(tmpDir)
+		backupPath := statePath + ".bak"
+
+		// Create a state file
+		original := NewState(tmpDir, SortByModifiedTime)
+		original.Groups = append(original.Groups, NewGroup("intro", 1))
+		original.CurrentIndex = 10
+
+		err := original.Save(statePath)
+		if err != nil {
+			t.Fatalf("failed to create state file: %v", err)
+		}
+
+		// Create backup
+		err = BackupState(tmpDir)
+		if err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+
+		// Verify backup file exists
+		if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+			t.Fatal("expected backup file to exist")
+		}
+	})
+
+	t.Run("backup content matches original", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		statePath := StateFilePath(tmpDir)
+		backupPath := statePath + ".bak"
+
+		// Create a state file with specific content
+		original := NewState(tmpDir, SortByModifiedTime)
+		original.Groups = append(original.Groups, NewGroup("intro", 1))
+		original.Groups = append(original.Groups, NewGroup("outro", 2))
+		original.CurrentIndex = 15
+		original.Classifications = append(original.Classifications, Classification{
+			File:       "test.mp4",
+			GroupID:    "group1",
+			TakeNumber: 3,
+		})
+
+		err := original.Save(statePath)
+		if err != nil {
+			t.Fatalf("failed to create state file: %v", err)
+		}
+
+		// Create backup
+		err = BackupState(tmpDir)
+		if err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+
+		// Read original and backup content
+		originalContent, err := os.ReadFile(statePath)
+		if err != nil {
+			t.Fatalf("failed to read original file: %v", err)
+		}
+
+		backupContent, err := os.ReadFile(backupPath)
+		if err != nil {
+			t.Fatalf("failed to read backup file: %v", err)
+		}
+
+		// Verify content matches
+		if string(originalContent) != string(backupContent) {
+			t.Error("expected backup content to match original content")
+		}
+
+		// Verify both can be loaded as valid state
+		loadedBackup, err := Load(backupPath)
+		if err != nil {
+			t.Fatalf("failed to load backup: %v", err)
+		}
+
+		if loadedBackup.CurrentIndex != 15 {
+			t.Errorf("expected CurrentIndex 15, got %d", loadedBackup.CurrentIndex)
+		}
+		if len(loadedBackup.Groups) != 2 {
+			t.Errorf("expected 2 groups, got %d", len(loadedBackup.Groups))
+		}
+		if len(loadedBackup.Classifications) != 1 {
+			t.Errorf("expected 1 classification, got %d", len(loadedBackup.Classifications))
+		}
+	})
 }
