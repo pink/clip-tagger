@@ -750,3 +750,112 @@ func TestModel_ActionCounterInitialization(t *testing.T) {
 		t.Errorf("expected actionsPerSave to be 5 (default), got %d", model.actionsPerSave)
 	}
 }
+
+// TestModel_ReviewScreenIntegration tests the review screen integration with model
+func TestModel_ReviewScreenIntegration(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+
+	// Create groups and files
+	group1 := state.NewGroup("Scene 1", 1)
+	appState.Groups = []state.Group{group1}
+	appState.AddOrUpdateClassification("file1.mp4", group1.ID)
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenReview
+	model.files = []string{"file1.mp4"}
+	model.reviewData = NewReviewData(appState, model.files)
+
+	t.Run("review screen renders correctly", func(t *testing.T) {
+		view := model.View()
+		if view == "" {
+			t.Error("expected review screen to render content")
+		}
+	})
+
+	t.Run("pressing Enter transitions to ScreenComplete", func(t *testing.T) {
+		keyMsg := tea.KeyMsg{Type: tea.KeyEnter}
+		updated, _ := model.Update(keyMsg)
+		updatedModel := updated.(Model)
+
+		if updatedModel.currentScreen != ScreenComplete {
+			t.Errorf("expected screen to be ScreenComplete, got %v", updatedModel.currentScreen)
+		}
+	})
+
+	t.Run("pressing Esc returns to ScreenClassification", func(t *testing.T) {
+		keyMsg := tea.KeyMsg{Type: tea.KeyEsc}
+		updated, cmd := model.Update(keyMsg)
+		updatedModel := updated.(Model)
+
+		if updatedModel.currentScreen != ScreenClassification {
+			t.Errorf("expected screen to be ScreenClassification, got %v", updatedModel.currentScreen)
+		}
+
+		// Should have command to initialize classification data
+		if cmd == nil {
+			t.Error("expected command to initialize classification data")
+		}
+
+		// File index should be reset to 0
+		if updatedModel.currentFileIndex != 0 {
+			t.Errorf("expected currentFileIndex to be reset to 0, got %d", updatedModel.currentFileIndex)
+		}
+	})
+
+	t.Run("pressing down navigates list", func(t *testing.T) {
+		keyMsg := tea.KeyMsg{Type: tea.KeyDown}
+		updated, _ := model.Update(keyMsg)
+		updatedModel := updated.(Model)
+
+		// Should remain on review screen
+		if updatedModel.currentScreen != ScreenReview {
+			t.Errorf("expected screen to remain ScreenReview, got %v", updatedModel.currentScreen)
+		}
+	})
+
+	t.Run("pressing up navigates list", func(t *testing.T) {
+		keyMsg := tea.KeyMsg{Type: tea.KeyUp}
+		updated, _ := model.Update(keyMsg)
+		updatedModel := updated.(Model)
+
+		// Should remain on review screen
+		if updatedModel.currentScreen != ScreenReview {
+			t.Errorf("expected screen to remain ScreenReview, got %v", updatedModel.currentScreen)
+		}
+	})
+}
+
+// TestModel_TransitionToReviewScreen tests that classification logic properly transitions to review
+func TestModel_TransitionToReviewScreen(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+
+	// Create group
+	group1 := state.NewGroup("Scene 1", 1)
+	appState.Groups = []state.Group{group1}
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+	model.files = []string{"file1.mp4"}
+	model.currentFileIndex = 0
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+
+	// Classify the file by calling handleGroupSelected
+	model = model.handleGroupSelected(group1.ID)
+
+	// Should transition to review screen since it's the last file
+	if model.currentScreen != ScreenReview {
+		t.Errorf("expected screen to be ScreenReview after last file, got %v", model.currentScreen)
+	}
+
+	// Review data should be initialized
+	if model.reviewData == nil {
+		t.Error("expected reviewData to be initialized")
+	}
+
+	// Review data should have correct counts
+	if model.reviewData.ClassifiedCount != 1 {
+		t.Errorf("expected 1 classified file, got %d", model.reviewData.ClassifiedCount)
+	}
+}

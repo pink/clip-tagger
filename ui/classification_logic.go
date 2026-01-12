@@ -33,6 +33,7 @@ func (m Model) handleClassificationSameAsLast() Model {
 	if m.currentFileIndex >= len(m.files) {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
+		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
 		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)
@@ -60,6 +61,7 @@ func (m Model) handleGroupSelected(groupID string) Model {
 	if m.currentFileIndex >= len(m.files) {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
+		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
 		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)
@@ -90,6 +92,7 @@ func (m Model) handleGroupInserted(groupID, groupName string, order int) Model {
 	if m.currentFileIndex >= len(m.files) {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
+		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
 		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)
@@ -119,6 +122,7 @@ func (m Model) handleClassificationSkip() Model {
 	if m.currentFileIndex >= len(m.files) {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
+		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
 		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)

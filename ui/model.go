@@ -52,6 +52,7 @@ type Model struct {
 	classificationData *ClassificationData
 	groupSelectionData *GroupSelectionData
 	groupInsertionData *GroupInsertionData
+	reviewData         *ReviewData
 	files              []string // List of files being classified
 	currentFileIndex   int      // Current file index in files list
 	actionCounter      int      // Counter for periodic auto-saves
@@ -69,6 +70,7 @@ func NewModel(appState *state.State, directory string) Model {
 		classificationData: nil,
 		groupSelectionData: nil,
 		groupInsertionData: nil,
+		reviewData:         nil,
 		files:              []string{},
 		currentFileIndex:   0,
 		actionCounter:      0,
@@ -285,6 +287,45 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// result.Screen == -2 means no screen change, continue
 		}
 
+		// Handle review screen keys
+		if m.currentScreen == ScreenReview && m.reviewData != nil {
+			var keyMsg string
+			switch msg.Type {
+			case tea.KeyCtrlC:
+				keyMsg = "ctrl+c"
+			case tea.KeyEnter:
+				keyMsg = "enter"
+			case tea.KeyEsc:
+				keyMsg = "esc"
+			case tea.KeyUp:
+				keyMsg = "up"
+			case tea.KeyDown:
+				keyMsg = "down"
+			default:
+				keyMsg = msg.String()
+			}
+
+			result := ReviewUpdate(m.reviewData, keyMsg)
+			if result.Screen == -1 {
+				return m, tea.Quit
+			} else if result.Screen >= 0 {
+				m.currentScreen = result.Screen
+				// If going back to classification, need to reinitialize classification data
+				if result.Screen == ScreenClassification {
+					// Reset to first file to allow re-classification
+					m.currentFileIndex = 0
+					return m, func() tea.Msg {
+						return ClassificationInitialized{
+							Files:     m.files,
+							FileIndex: 0,
+						}
+					}
+				}
+				return m, nil
+			}
+			// result.Screen == -2 means no screen change, continue
+		}
+
 		// Global quit handler
 		switch msg.Type {
 		case tea.KeyCtrlC:
@@ -437,7 +478,10 @@ func (m Model) View() string {
 		}
 		return "Loading group insertion...\n\nPress Ctrl+C to quit"
 	case ScreenReview:
-		return "Review Screen\n\nPress Ctrl+C to quit"
+		if m.reviewData != nil {
+			return ReviewView(m.reviewData)
+		}
+		return "Loading review...\n\nPress Ctrl+C to quit"
 	case ScreenComplete:
 		return "Complete Screen\n\nPress Ctrl+C to quit"
 	default:
