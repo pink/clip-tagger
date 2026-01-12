@@ -53,6 +53,7 @@ type Model struct {
 	groupSelectionData *GroupSelectionData
 	groupInsertionData *GroupInsertionData
 	reviewData         *ReviewData
+	completionData     *CompletionData
 	files              []string // List of files being classified
 	currentFileIndex   int      // Current file index in files list
 	actionCounter      int      // Counter for periodic auto-saves
@@ -71,6 +72,7 @@ func NewModel(appState *state.State, directory string) Model {
 		groupSelectionData: nil,
 		groupInsertionData: nil,
 		reviewData:         nil,
+		completionData:     nil,
 		files:              []string{},
 		currentFileIndex:   0,
 		actionCounter:      0,
@@ -321,6 +323,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
+				// If transitioning to completion screen, initialize it
+				if result.Screen == ScreenComplete {
+					return m, func() tea.Msg {
+						return CompletionInitialized{}
+					}
+				}
+				return m, nil
+			}
+			// result.Screen == -2 means no screen change, continue
+		}
+
+		// Handle completion screen keys
+		if m.currentScreen == ScreenComplete && m.completionData != nil {
+			var keyMsg string
+			switch msg.Type {
+			case tea.KeyCtrlC:
+				keyMsg = "ctrl+c"
+			case tea.KeyEnter:
+				keyMsg = "enter"
+			case tea.KeyEsc:
+				keyMsg = "esc"
+			case tea.KeyUp:
+				keyMsg = "up"
+			case tea.KeyDown:
+				keyMsg = "down"
+			default:
+				keyMsg = msg.String()
+			}
+
+			result := CompletionUpdate(m.completionData, keyMsg)
+			if result.Screen == -1 {
+				return m, tea.Quit
+			} else if result.Screen >= 0 {
+				m.currentScreen = result.Screen
 				return m, nil
 			}
 			// result.Screen == -2 means no screen change, continue
@@ -376,6 +412,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Auto-save state after group insertion (immediate save)
 		m = m.autoSaveState()
 
+		return m, nil
+
+	case CompletionInitialized:
+		m.completionData = NewCompletionData(m.state)
 		return m, nil
 
 	case TransitionToScreen:
@@ -483,7 +523,10 @@ func (m Model) View() string {
 		}
 		return "Loading review...\n\nPress Ctrl+C to quit"
 	case ScreenComplete:
-		return "Complete Screen\n\nPress Ctrl+C to quit"
+		if m.completionData != nil {
+			return CompletionView(m.completionData)
+		}
+		return "Loading completion...\n\nPress Ctrl+C to quit"
 	default:
 		return "Unknown Screen\n\nPress Ctrl+C to quit"
 	}

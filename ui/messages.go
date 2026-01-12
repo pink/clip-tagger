@@ -52,3 +52,7 @@ type GroupInserted struct {
 	GroupName string
 	Order     int
 }
+
+// CompletionInitialized is sent when completion screen is initialized
+type CompletionInitialized struct {
+}
