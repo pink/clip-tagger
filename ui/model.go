@@ -43,21 +43,27 @@ func (s Screen) String() string {
 
 // Model is the main Bubbletea model
 type Model struct {
-	state         *state.State
-	currentScreen Screen
-	err           string
-	directory     string
-	startupData   *StartupData
+	state              *state.State
+	currentScreen      Screen
+	err                string
+	directory          string
+	startupData        *StartupData
+	classificationData *ClassificationData
+	files              []string // List of files being classified
+	currentFileIndex   int      // Current file index in files list
 }
 
 // NewModel creates a new Model with the given state and directory
 func NewModel(appState *state.State, directory string) Model {
 	return Model{
-		state:         appState,
-		currentScreen: ScreenStartup,
-		err:           "",
-		directory:     directory,
-		startupData:   nil,
+		state:              appState,
+		currentScreen:      ScreenStartup,
+		err:                "",
+		directory:          directory,
+		startupData:        nil,
+		classificationData: nil,
+		files:              []string{},
+		currentFileIndex:   0,
 	}
 }
 
@@ -112,9 +118,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			} else if screen >= 0 {
 				m.currentScreen = screen
+				// If transitioning to classification screen, initialize it
+				if screen == ScreenClassification {
+					return m, func() tea.Msg {
+						return ClassificationInitialized{
+							Files:     m.files,
+							FileIndex: m.currentFileIndex,
+						}
+					}
+				}
 				return m, nil
 			}
 			// screen == -2 means no action, continue
+		}
+
+		// Handle classification screen keys
+		if m.currentScreen == ScreenClassification && m.classificationData != nil {
+			var keyMsg string
+			switch msg.Type {
+			case tea.KeyCtrlC:
+				keyMsg = "ctrl+c"
+			default:
+				keyMsg = msg.String()
+			}
+
+			result := ClassificationUpdate(m.classificationData, keyMsg)
+			if result.Screen == -1 {
+				return m, tea.Quit
+			} else if result.Screen >= 0 {
+				m.currentScreen = result.Screen
+				return m, nil
+			}
+			// result.Screen == -2 means no screen change
+			// The action will be handled in later tasks (Task 15)
 		}
 
 		// Global quit handler
@@ -125,6 +161,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case StartupInitialized:
 		m.startupData = NewStartupData(m.state, msg.ScannedFiles, msg.MergeResult)
+		// Store files for classification
+		m.files = msg.ScannedFiles
+		m.currentFileIndex = 0
+		return m, nil
+
+	case ClassificationInitialized:
+		m.classificationData = NewClassificationData(m.state, msg.Files, msg.FileIndex)
 		return m, nil
 
 	case TransitionToScreen:
@@ -157,7 +200,10 @@ func (m Model) View() string {
 		}
 		return "Loading...\n\nPress Ctrl+C to quit"
 	case ScreenClassification:
-		return "Classification Screen\n\nPress Ctrl+C to quit"
+		if m.classificationData != nil {
+			return ClassificationView(m.classificationData)
+		}
+		return "Loading classification...\n\nPress Ctrl+C to quit"
 	case ScreenGroupSelection:
 		return "Group Selection Screen\n\nPress Ctrl+C to quit"
 	case ScreenGroupInsertion:

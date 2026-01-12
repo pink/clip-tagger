@@ -23,3 +23,9 @@ type StartupInitialized struct {
 	ScannedFiles []string
 	MergeResult  *state.MergeResult
 }
+
+// ClassificationInitialized is sent when classification screen is initialized
+type ClassificationInitialized struct {
+	Files     []string
+	FileIndex int
+}
