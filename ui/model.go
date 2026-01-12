@@ -54,6 +54,8 @@ type Model struct {
 	groupInsertionData *GroupInsertionData
 	files              []string // List of files being classified
 	currentFileIndex   int      // Current file index in files list
+	actionCounter      int      // Counter for periodic auto-saves
+	actionsPerSave     int      // Number of actions before auto-save (default: 5)
 }
 
 // NewModel creates a new Model with the given state and directory
@@ -69,6 +71,8 @@ func NewModel(appState *state.State, directory string) Model {
 		groupInsertionData: nil,
 		files:              []string{},
 		currentFileIndex:   0,
+		actionCounter:      0,
+		actionsPerSave:     5, // Default: save every 5 actions
 	}
 }
 
@@ -151,6 +155,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if result.Screen == -1 {
 				return m, tea.Quit
 			} else if result.Screen >= 0 {
+				// Save state when leaving classification screen
+				if result.Screen != ScreenClassification {
+					m = m.autoSaveState()
+				}
 				m.currentScreen = result.Screen
 				// If transitioning to group selection, initialize it
 				if result.Screen == ScreenGroupSelection {
@@ -178,6 +186,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					m.err = fmt.Sprintf("Failed to preview file: %v", err)
 				}
+				return m, nil
+			}
+			// Handle "Same as Last" action
+			if result.Action == ClassificationActionSameAsLast {
+				// The actual classification logic will be in Task 15
+				// For now, just auto-save after the action and track it
+				m = m.incrementActionAndMaybeSave()
+				return m, nil
+			}
+			// Handle "Skip" action
+			if result.Action == ClassificationActionSkip {
+				// The actual skip logic will be in Task 15
+				// For now, just auto-save after the action and track it
+				m = m.incrementActionAndMaybeSave()
 				return m, nil
 			}
 			// Other actions will be handled in later tasks (Task 15)
@@ -316,6 +338,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case TransitionToScreen:
+		// Save state when leaving classification screen
+		if m.currentScreen == ScreenClassification && msg.Screen != ScreenClassification {
+			m = m.autoSaveState()
+		}
 		m.currentScreen = msg.Screen
 		return m, nil
 
@@ -358,13 +384,26 @@ func insertGroupAtPosition(groups *[]state.Group, newGroup state.Group, order in
 // This is called after key state-changing actions:
 // - GroupSelected: After a group is selected
 // - GroupInserted: After a new group is inserted
-// - TODO (Task 15): After file classification
-// - TODO (Task 15): After skip action
+// - ClassificationActionSameAsLast: After classifying file with same group as last
+// - ClassificationActionSkip: After skipping a file
+// - Screen transitions: When leaving classification screen
 func (m Model) autoSaveState() Model {
 	statePath := state.StateFilePath(m.directory)
 	err := m.state.Save(statePath)
 	if err != nil {
 		m.err = fmt.Sprintf("Failed to save state: %v", err)
+	}
+	return m
+}
+
+// incrementActionAndMaybeSave increments the action counter and performs periodic auto-save
+// This implements the periodic save feature that saves state every N actions
+func (m Model) incrementActionAndMaybeSave() Model {
+	m.actionCounter++
+	// Check if we've reached the periodic save threshold
+	if m.actionCounter >= m.actionsPerSave {
+		m.actionCounter = 0 // Reset counter
+		m = m.autoSaveState()
 	}
 	return m
 }

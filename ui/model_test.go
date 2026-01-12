@@ -482,15 +482,270 @@ func TestModel_NoSaveOnNonStateChangingActions(t *testing.T) {
 	appState := state.NewState(tmpDir, state.SortByModifiedTime)
 
 	model := NewModel(appState, tmpDir)
-	model.currentScreen = ScreenClassification
+	model.currentScreen = ScreenStartup
 
-	// Send a screen transition message (shouldn't trigger save)
+	// Send a screen transition message from startup to review (shouldn't trigger save)
 	msg := TransitionToScreen{Screen: ScreenReview}
 	_, _ = model.Update(msg)
 
 	// Verify state file was NOT created
 	statePath := state.StateFilePath(tmpDir)
 	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
-		t.Error("expected state file to NOT be created for screen transition")
+		t.Error("expected state file to NOT be created for screen transition from non-classification screen")
+	}
+}
+
+// TestModel_AutoSaveOnClassificationActionSameAsLast tests that state is saved after "Same as Last" action
+func TestModel_AutoSaveOnClassificationActionSameAsLast(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	group := state.NewGroup("intro", 1)
+	appState.Groups = append(appState.Groups, group)
+
+	// Add a previous classification so "Same as Last" is available
+	appState.Classifications = append(appState.Classifications, state.Classification{
+		File:       "file1.mp4",
+		GroupID:    group.ID,
+		TakeNumber: 1,
+	})
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+	model.files = []string{"file1.mp4", "file2.mp4"}
+	model.currentFileIndex = 1 // Currently on file2.mp4, file1.mp4 has classification
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.actionsPerSave = 1 // Save after every action for this test
+
+	// Verify the classification data has previous classification (prerequisite)
+	if !model.classificationData.HasPreviousClassification {
+		t.Fatal("expected classificationData to have previous classification for this test to work")
+	}
+
+	// Trigger "Same as Last" action with '1' key
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}}
+	_, _ = model.Update(keyMsg)
+
+	// Verify state file was created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to be created after ClassificationActionSameAsLast")
+	}
+
+	// Verify state can be loaded
+	loaded, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("failed to load saved state: %v", err)
+	}
+
+	if len(loaded.Groups) != 1 {
+		t.Errorf("expected 1 group in loaded state, got %d", len(loaded.Groups))
+	}
+}
+
+// TestModel_AutoSaveOnClassificationActionSkip tests that state is saved after "Skip" action
+func TestModel_AutoSaveOnClassificationActionSkip(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("scene1", 1))
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+	model.files = []string{"file1.mp4"}
+	model.currentFileIndex = 0
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.actionsPerSave = 1 // Save after every action for this test
+
+	// Trigger "Skip" action with 's' key
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	_, _ = model.Update(keyMsg)
+
+	// Verify state file was created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to be created after ClassificationActionSkip")
+	}
+
+	// Verify state can be loaded
+	loaded, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("failed to load saved state: %v", err)
+	}
+
+	if len(loaded.Groups) != 1 {
+		t.Errorf("expected 1 group in loaded state, got %d", len(loaded.Groups))
+	}
+}
+
+// TestModel_PeriodicAutoSave tests that state is saved every N actions
+func TestModel_PeriodicAutoSave(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("scene1", 1))
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+	model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4", "file4.mp4", "file5.mp4"}
+	model.currentFileIndex = 0
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.actionsPerSave = 3 // Save every 3 actions
+
+	statePath := state.StateFilePath(tmpDir)
+
+	// Action 1 - should not save yet
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+	updated, _ := model.Update(keyMsg)
+	model = updated.(Model)
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Error("expected state file to NOT exist after 1 action (threshold is 3)")
+	}
+
+	// Action 2 - should not save yet
+	updated, _ = model.Update(keyMsg)
+	model = updated.(Model)
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Error("expected state file to NOT exist after 2 actions (threshold is 3)")
+	}
+
+	// Action 3 - should trigger save
+	updated, _ = model.Update(keyMsg)
+	model = updated.(Model)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to exist after 3 actions (threshold reached)")
+	}
+
+	// Verify counter was reset and action 4 doesn't save
+	os.Remove(statePath) // Remove state file to test counter reset
+	updated, _ = model.Update(keyMsg)
+	model = updated.(Model)
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Error("expected state file to NOT exist after counter reset (action 4)")
+	}
+
+	// Action 5 - should not save yet
+	updated, _ = model.Update(keyMsg)
+	model = updated.(Model)
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Error("expected state file to NOT exist after 5 actions (2 since reset)")
+	}
+
+	// Action 6 - should trigger save again
+	updated, _ = model.Update(keyMsg)
+	model = updated.(Model)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to exist after 6 actions (3 since reset)")
+	}
+}
+
+// TestModel_ScreenTransitionSave_FromClassification tests that state is saved when leaving classification screen
+func TestModel_ScreenTransitionSave_FromClassification(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("scene1", 1))
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+	model.files = []string{"file1.mp4"}
+	model.currentFileIndex = 0
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+
+	// Transition from classification to review screen
+	msg := TransitionToScreen{Screen: ScreenReview}
+	_, _ = model.Update(msg)
+
+	// Verify state file was created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to be created when leaving classification screen")
+	}
+
+	// Verify state can be loaded
+	loaded, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("failed to load saved state: %v", err)
+	}
+
+	if len(loaded.Groups) != 1 {
+		t.Errorf("expected 1 group in loaded state, got %d", len(loaded.Groups))
+	}
+}
+
+// TestModel_ScreenTransitionSave_ToGroupSelection tests that state is saved when transitioning to group selection
+func TestModel_ScreenTransitionSave_ToGroupSelection(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("scene1", 1))
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+	model.files = []string{"file1.mp4"}
+	model.currentFileIndex = 0
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+
+	// Trigger transition to group selection with '2' key
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}}
+	_, _ = model.Update(keyMsg)
+
+	// Verify state file was created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to be created when transitioning from classification to group selection")
+	}
+}
+
+// TestModel_ScreenTransitionSave_ToGroupInsertion tests that state is saved when transitioning to group insertion
+func TestModel_ScreenTransitionSave_ToGroupInsertion(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("scene1", 1))
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+	model.files = []string{"file1.mp4"}
+	model.currentFileIndex = 0
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+
+	// Trigger transition to group insertion with '3' key
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}}
+	_, _ = model.Update(keyMsg)
+
+	// Verify state file was created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to be created when transitioning from classification to group insertion")
+	}
+}
+
+// TestModel_NoSaveOnTransitionWithinNonClassification tests that transitions between non-classification screens don't trigger save
+func TestModel_NoSaveOnTransitionWithinNonClassification(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenReview
+
+	// Transition from review to complete (no classification screen involved)
+	msg := TransitionToScreen{Screen: ScreenComplete}
+	_, _ = model.Update(msg)
+
+	// Verify state file was NOT created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Error("expected state file to NOT be created for transition between non-classification screens")
+	}
+}
+
+// TestModel_ActionCounterInitialization tests that action counter is initialized correctly
+func TestModel_ActionCounterInitialization(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+
+	model := NewModel(appState, tmpDir)
+
+	if model.actionCounter != 0 {
+		t.Errorf("expected action counter to be 0, got %d", model.actionCounter)
+	}
+
+	if model.actionsPerSave != 5 {
+		t.Errorf("expected actionsPerSave to be 5 (default), got %d", model.actionsPerSave)
 	}
 }
