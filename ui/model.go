@@ -2,6 +2,7 @@
 package ui
 
 import (
+	"clip-tagger/preview"
 	"clip-tagger/scanner"
 	"clip-tagger/state"
 	"fmt"
@@ -150,7 +151,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			// result.Screen == -2 means no screen change
-			// The action will be handled in later tasks (Task 15)
+			// Handle actions that don't change screens
+			if result.Action == ClassificationActionPreview {
+				// Handle preview action
+				err := preview.OpenFile(m.classificationData.FilePath)
+				if err != nil {
+					m.err = fmt.Sprintf("Failed to preview file: %v", err)
+				}
+				return m, nil
+			}
+			// Other actions will be handled in later tasks (Task 15)
 		}
 
 		// Global quit handler

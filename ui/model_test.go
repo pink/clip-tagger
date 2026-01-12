@@ -3,6 +3,8 @@ package ui
 
 import (
 	"clip-tagger/state"
+	"os"
+	"path/filepath"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -194,5 +196,107 @@ func TestAllScreensEnumerated(t *testing.T) {
 
 	if len(screens) != 6 {
 		t.Errorf("expected 6 screens, found %d", len(screens))
+	}
+}
+
+func TestModel_PreviewAction_FileNotFound(t *testing.T) {
+	// Test preview action when file doesn't exist
+	appState := state.NewState("/tmp", state.SortByModifiedTime)
+	model := NewModel(appState, "/tmp")
+
+	// Set up classification screen with non-existent file
+	files := []string{"nonexistent-file.mp4"}
+	model.files = files
+	model.currentFileIndex = 0
+	model.currentScreen = ScreenClassification
+	model.classificationData = NewClassificationData(appState, files, 0)
+
+	// Trigger preview action with 'p' key
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
+	updated, _ := model.Update(keyMsg)
+	updatedModel := updated.(Model)
+
+	// Should set error message
+	if updatedModel.err == "" {
+		t.Error("expected error message when previewing non-existent file")
+	}
+	if !contains(updatedModel.err, "Failed to preview file") {
+		t.Errorf("expected error message to contain 'Failed to preview file', got: %s", updatedModel.err)
+	}
+}
+
+func TestModel_PreviewAction_Success(t *testing.T) {
+	// Test preview action with existing file
+	// Create a temporary file
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test-video.mp4")
+
+	f, err := os.Create(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	f.Close()
+
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	model := NewModel(appState, tmpDir)
+
+	// Set up classification screen
+	files := []string{"test-video.mp4"}
+	model.files = files
+	model.currentFileIndex = 0
+	model.currentScreen = ScreenClassification
+	model.classificationData = NewClassificationData(appState, files, 0)
+
+	// Trigger preview action with 'p' key
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
+	updated, _ := model.Update(keyMsg)
+	updatedModel := updated.(Model)
+
+	// On systems with a default player, no error should be set
+	// On headless/CI systems, an error may be set (acceptable)
+	if updatedModel.err != "" {
+		t.Logf("Preview returned error (may be expected in test environment): %s", updatedModel.err)
+	}
+
+	// Should remain on classification screen
+	if updatedModel.currentScreen != ScreenClassification {
+		t.Errorf("expected to remain on classification screen, got %v", updatedModel.currentScreen)
+	}
+}
+
+func TestModel_PreviewAction_ScreenNoChange(t *testing.T) {
+	// Test that preview action doesn't change screen
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.mp4")
+
+	f, err := os.Create(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	f.Close()
+
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	model := NewModel(appState, tmpDir)
+
+	// Set up classification screen
+	files := []string{"test.mp4"}
+	model.files = files
+	model.currentFileIndex = 0
+	model.currentScreen = ScreenClassification
+	model.classificationData = NewClassificationData(appState, files, 0)
+
+	// Trigger preview action
+	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
+	updated, cmd := model.Update(keyMsg)
+	updatedModel := updated.(Model)
+
+	// Should remain on classification screen
+	if updatedModel.currentScreen != ScreenClassification {
+		t.Errorf("expected screen to remain ScreenClassification, got %v", updatedModel.currentScreen)
+	}
+
+	// Should not return any command (no screen transition)
+	if cmd != nil {
+		t.Error("expected no command for preview action (stays on same screen)")
 	}
 }
