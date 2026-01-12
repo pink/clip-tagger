@@ -289,6 +289,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case GroupSelected:
 		// Group was selected, will be handled in later tasks (Task 15)
+		// Auto-save state after group selection
+		m = m.autoSaveState()
 		// For now, just transition back to classification screen
 		return m, nil
 
@@ -307,6 +309,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Insert group at the correct position and renumber
 		insertGroupAtPosition(&m.state.Groups, newGroup, msg.Order)
+
+		// Auto-save state after group insertion
+		m = m.autoSaveState()
 
 		return m, nil
 
@@ -347,6 +352,21 @@ func insertGroupAtPosition(groups *[]state.Group, newGroup state.Group, order in
 	for i := range *groups {
 		(*groups)[i].Order = i + 1
 	}
+}
+
+// autoSaveState saves the current state to disk and handles errors gracefully
+// This is called after key state-changing actions:
+// - GroupSelected: After a group is selected
+// - GroupInserted: After a new group is inserted
+// - TODO (Task 15): After file classification
+// - TODO (Task 15): After skip action
+func (m Model) autoSaveState() Model {
+	statePath := state.StateFilePath(m.directory)
+	err := m.state.Save(statePath)
+	if err != nil {
+		m.err = fmt.Sprintf("Failed to save state: %v", err)
+	}
+	return m
 }
 
 // View renders the current screen

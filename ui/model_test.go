@@ -300,3 +300,197 @@ func TestModel_PreviewAction_ScreenNoChange(t *testing.T) {
 		t.Error("expected no command for preview action (stays on same screen)")
 	}
 }
+
+// TestModel_AutoSaveOnGroupSelected tests that state is saved after a group is selected
+func TestModel_AutoSaveOnGroupSelected(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("intro", 1))
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+
+	// Send GroupSelected message
+	msg := GroupSelected{
+		GroupID:   appState.Groups[0].ID,
+		GroupName: "intro",
+	}
+
+	_, _ = model.Update(msg)
+
+	// Verify state file was created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to be created after GroupSelected")
+	}
+
+	// Verify state can be loaded
+	loaded, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("failed to load saved state: %v", err)
+	}
+
+	if len(loaded.Groups) != 1 {
+		t.Errorf("expected 1 group in loaded state, got %d", len(loaded.Groups))
+	}
+}
+
+// TestModel_AutoSaveOnGroupInserted tests that state is saved after a group is inserted
+func TestModel_AutoSaveOnGroupInserted(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("intro", 1))
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+
+	// Send GroupInserted message
+	newGroup := state.NewGroup("outro", 2)
+	msg := GroupInserted{
+		GroupID:   newGroup.ID,
+		GroupName: newGroup.Name,
+		Order:     2,
+	}
+
+	_, _ = model.Update(msg)
+
+	// Verify state file was created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to be created after GroupInserted")
+	}
+
+	// Verify state can be loaded and has 2 groups
+	loaded, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("failed to load saved state: %v", err)
+	}
+
+	if len(loaded.Groups) != 2 {
+		t.Errorf("expected 2 groups in loaded state, got %d", len(loaded.Groups))
+	}
+}
+
+// TestModel_SaveErrorHandling tests that save errors are handled gracefully
+func TestModel_SaveErrorHandling(t *testing.T) {
+	// Use a read-only directory to force a save error
+	tmpDir := t.TempDir()
+	readOnlyDir := filepath.Join(tmpDir, "readonly")
+	err := os.Mkdir(readOnlyDir, 0444) // read-only permissions
+	if err != nil {
+		t.Fatalf("failed to create read-only dir: %v", err)
+	}
+
+	appState := state.NewState(readOnlyDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("intro", 1))
+
+	model := NewModel(appState, readOnlyDir)
+	model.currentScreen = ScreenClassification
+
+	// Send GroupSelected message - should fail to save
+	msg := GroupSelected{
+		GroupID:   appState.Groups[0].ID,
+		GroupName: "intro",
+	}
+
+	updated, _ := model.Update(msg)
+	updatedModel := updated.(Model)
+
+	// Should have error message but not crash
+	if updatedModel.err == "" {
+		t.Error("expected error message when save fails")
+	}
+
+	if !contains(updatedModel.err, "Failed to save state") {
+		t.Errorf("expected error message to contain 'Failed to save state', got: %s", updatedModel.err)
+	}
+
+	// Should still be able to continue using the app (not crashed)
+	if updatedModel.state == nil {
+		t.Error("expected state to still be available after save error")
+	}
+}
+
+// TestModel_StatePersistenceAcrossRestarts tests that state can be persisted and loaded
+func TestModel_StatePersistenceAcrossRestarts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create initial state and save it
+	originalState := state.NewState(tmpDir, state.SortByModifiedTime)
+	originalState.Groups = append(originalState.Groups, state.NewGroup("intro", 1))
+	originalState.Groups = append(originalState.Groups, state.NewGroup("outro", 2))
+	originalState.CurrentIndex = 5
+
+	model := NewModel(originalState, tmpDir)
+
+	// Trigger a save by sending GroupSelected message
+	msg := GroupSelected{
+		GroupID:   originalState.Groups[0].ID,
+		GroupName: "intro",
+	}
+	_, _ = model.Update(msg)
+
+	// Verify state file exists
+	statePath := state.StateFilePath(tmpDir)
+	if !state.StateExists(tmpDir) {
+		t.Fatal("expected state file to exist")
+	}
+
+	// Load state (simulating app restart)
+	loaded, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("failed to load state: %v", err)
+	}
+
+	// Verify loaded state matches original
+	if loaded.Directory != originalState.Directory {
+		t.Errorf("directory mismatch: expected %s, got %s", originalState.Directory, loaded.Directory)
+	}
+	if loaded.CurrentIndex != originalState.CurrentIndex {
+		t.Errorf("index mismatch: expected %d, got %d", originalState.CurrentIndex, loaded.CurrentIndex)
+	}
+	if len(loaded.Groups) != len(originalState.Groups) {
+		t.Errorf("groups count mismatch: expected %d, got %d", len(originalState.Groups), len(loaded.Groups))
+	}
+}
+
+// TestModel_StateFileLocation tests that state file is created in the correct location
+func TestModel_StateFileLocation(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+	appState.Groups = append(appState.Groups, state.NewGroup("intro", 1))
+
+	model := NewModel(appState, tmpDir)
+
+	// Trigger a save
+	msg := GroupSelected{
+		GroupID:   appState.Groups[0].ID,
+		GroupName: "intro",
+	}
+	_, _ = model.Update(msg)
+
+	// Verify state file is in the working directory with correct name
+	expectedPath := filepath.Join(tmpDir, ".clip-tagger-state.json")
+	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+		t.Errorf("expected state file at %s, but it does not exist", expectedPath)
+	}
+}
+
+// TestModel_NoSaveOnNonStateChangingActions tests that state is NOT saved for actions that don't change state
+func TestModel_NoSaveOnNonStateChangingActions(t *testing.T) {
+	tmpDir := t.TempDir()
+	appState := state.NewState(tmpDir, state.SortByModifiedTime)
+
+	model := NewModel(appState, tmpDir)
+	model.currentScreen = ScreenClassification
+
+	// Send a screen transition message (shouldn't trigger save)
+	msg := TransitionToScreen{Screen: ScreenReview}
+	_, _ = model.Update(msg)
+
+	// Verify state file was NOT created
+	statePath := state.StateFilePath(tmpDir)
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Error("expected state file to NOT be created for screen transition")
+	}
+}
