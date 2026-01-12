@@ -584,7 +584,8 @@ func TestModel_PeriodicAutoSave(t *testing.T) {
 
 	model := NewModel(appState, tmpDir)
 	model.currentScreen = ScreenClassification
-	model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4", "file4.mp4", "file5.mp4"}
+	// Need enough files so we don't transition to review screen during test
+	model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4", "file4.mp4", "file5.mp4", "file6.mp4", "file7.mp4"}
 	model.currentFileIndex = 0
 	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
 	model.actionsPerSave = 3 // Save every 3 actions

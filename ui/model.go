@@ -190,19 +190,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Handle "Same as Last" action
 			if result.Action == ClassificationActionSameAsLast {
-				// The actual classification logic will be in Task 15
-				// For now, just auto-save after the action and track it
+				m = m.handleClassificationSameAsLast()
 				m = m.incrementActionAndMaybeSave()
 				return m, nil
 			}
 			// Handle "Skip" action
 			if result.Action == ClassificationActionSkip {
-				// The actual skip logic will be in Task 15
-				// For now, just auto-save after the action and track it
+				m = m.handleClassificationSkip()
 				m = m.incrementActionAndMaybeSave()
 				return m, nil
 			}
-			// Other actions will be handled in later tasks (Task 15)
 		}
 
 		// Handle group selection screen keys
@@ -310,10 +307,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case GroupSelected:
-		// Group was selected, will be handled in later tasks (Task 15)
-		// Auto-save state after group selection
+		// Group was selected, handle classification
+		m = m.handleGroupSelected(msg.GroupID)
+		// Auto-save state after group selection (immediate save)
 		m = m.autoSaveState()
-		// For now, just transition back to classification screen
 		return m, nil
 
 	case GroupInsertionInitialized:
@@ -321,7 +318,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case GroupInserted:
-		// Group was inserted, add to state and transition back to classification screen
+		// Group was inserted, add to state and handle classification
 		// Create the group with the specified order
 		newGroup := state.Group{
 			ID:    msg.GroupID,
@@ -332,7 +329,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Insert group at the correct position and renumber
 		insertGroupAtPosition(&m.state.Groups, newGroup, msg.Order)
 
-		// Auto-save state after group insertion
+		// Handle classification with the new group
+		m = m.handleGroupInserted(msg.GroupID, msg.GroupName, msg.Order)
+
+		// Auto-save state after group insertion (immediate save)
 		m = m.autoSaveState()
 
 		return m, nil
