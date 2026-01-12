@@ -3,6 +3,7 @@ package renamer
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -77,5 +78,35 @@ func TestGenerateTargetPath(t *testing.T) {
 				tt.directory, tt.originalPath, tt.groupOrder, tt.takeNumber, tt.groupName,
 				result, expected)
 		}
+	}
+}
+
+func TestDetectConflicts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create existing file
+	existing := filepath.Join(tmpDir, "[01_01] intro.mp4")
+	if err := os.WriteFile(existing, []byte("test"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	renames := []Rename{
+		{
+			OriginalPath: filepath.Join(tmpDir, "vid1.mp4"),
+			TargetPath:   filepath.Join(tmpDir, "[01_01] intro.mp4"), // Conflicts
+		},
+		{
+			OriginalPath: filepath.Join(tmpDir, "vid2.mp4"),
+			TargetPath:   filepath.Join(tmpDir, "[02_01] outro.mp4"), // No conflict
+		},
+	}
+
+	conflicts := DetectConflicts(renames)
+	if len(conflicts) != 1 {
+		t.Errorf("expected 1 conflict, got %d", len(conflicts))
+	}
+
+	if conflicts[0].TargetPath != existing {
+		t.Errorf("wrong conflict path: %s", conflicts[0].TargetPath)
 	}
 }

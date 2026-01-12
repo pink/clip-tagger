@@ -3,8 +3,16 @@ package renamer
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 )
+
+// Rename represents a file rename operation
+type Rename struct {
+	OriginalPath string
+	TargetPath   string
+	ChangeType   string // "new", "updated", "moved", or ""
+}
 
 // GenerateFilename creates a filename in format [XX_YY] name.ext
 func GenerateFilename(groupOrder, takeNumber int, groupName, extension string) string {
@@ -26,4 +34,20 @@ func GenerateTargetPath(directory, originalPath string, groupOrder, takeNumber i
 	ext := filepath.Ext(originalPath)
 	newName := GenerateFilename(groupOrder, takeNumber, groupName, ext)
 	return filepath.Join(directory, newName)
+}
+
+// DetectConflicts checks if any target paths already exist
+func DetectConflicts(renames []Rename) []Rename {
+	var conflicts []Rename
+	for _, r := range renames {
+		// Skip if target is same as source (no actual rename)
+		if r.OriginalPath == r.TargetPath {
+			continue
+		}
+
+		if _, err := os.Stat(r.TargetPath); err == nil {
+			conflicts = append(conflicts, r)
+		}
+	}
+	return conflicts
 }
