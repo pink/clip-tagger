@@ -27,7 +27,7 @@ func main() {
 	appState := state.NewState(directory, state.SortByModifiedTime)
 
 	// Create and run the Bubbletea program
-	model := ui.NewModel(appState)
+	model := ui.NewModel(appState, directory)
 	program := tea.NewProgram(model)
 
 	if _, err := program.Run(); err != nil {

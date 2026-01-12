@@ -17,3 +17,9 @@ type StateUpdate struct {
 type ErrorMsg struct {
 	Err string
 }
+
+// StartupInitialized is sent when startup screen is initialized
+type StartupInitialized struct {
+	ScannedFiles []string
+	MergeResult  *state.MergeResult
+}

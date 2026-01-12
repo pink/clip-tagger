@@ -10,13 +10,16 @@ import (
 
 func TestNewModel(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
-	model := NewModel(appState)
+	model := NewModel(appState, "/test/dir")
 
 	if model.state != appState {
 		t.Error("expected model to have correct state reference")
 	}
 	if model.currentScreen != ScreenStartup {
 		t.Errorf("expected initial screen to be ScreenStartup, got %v", model.currentScreen)
+	}
+	if model.directory != "/test/dir" {
+		t.Errorf("expected directory to be /test/dir, got %s", model.directory)
 	}
 }
 
@@ -45,17 +48,18 @@ func TestScreen_String(t *testing.T) {
 
 func TestModel_Init(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
-	model := NewModel(appState)
+	model := NewModel(appState, "/test/dir")
 
-	// Init should not panic and can return nil if no initial command needed
+	// Init should return a command for initialization
 	cmd := model.Init()
-	// Just verify it doesn't panic - cmd can be nil
-	_ = cmd
+	if cmd == nil {
+		t.Error("expected Init to return a command")
+	}
 }
 
 func TestModel_Update_ScreenTransitions(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
-	model := NewModel(appState)
+	model := NewModel(appState, "/test/dir")
 
 	t.Run("transition to classification screen", func(t *testing.T) {
 		msg := TransitionToScreen{Screen: ScreenClassification}
@@ -90,7 +94,7 @@ func TestModel_Update_ScreenTransitions(t *testing.T) {
 
 func TestModel_Update_QuitMessage(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
-	model := NewModel(appState)
+	model := NewModel(appState, "/test/dir")
 
 	t.Run("quit with ctrl+c", func(t *testing.T) {
 		msg := tea.KeyMsg{Type: tea.KeyCtrlC}
@@ -119,7 +123,7 @@ func TestModel_Update_QuitMessage(t *testing.T) {
 
 func TestModel_View(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
-	model := NewModel(appState)
+	model := NewModel(appState, "/test/dir")
 
 	t.Run("view returns non-empty string", func(t *testing.T) {
 		view := model.View()
@@ -153,7 +157,7 @@ func TestModel_View(t *testing.T) {
 
 func TestModel_StateUpdate(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
-	model := NewModel(appState)
+	model := NewModel(appState, "/test/dir")
 
 	t.Run("state update message updates state", func(t *testing.T) {
 		newState := state.NewState("/new/dir", state.SortByName)
