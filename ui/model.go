@@ -50,6 +50,7 @@ type Model struct {
 	directory          string
 	startupData        *StartupData
 	classificationData *ClassificationData
+	groupSelectionData *GroupSelectionData
 	files              []string // List of files being classified
 	currentFileIndex   int      // Current file index in files list
 }
@@ -63,6 +64,7 @@ func NewModel(appState *state.State, directory string) Model {
 		directory:          directory,
 		startupData:        nil,
 		classificationData: nil,
+		groupSelectionData: nil,
 		files:              []string{},
 		currentFileIndex:   0,
 	}
@@ -148,6 +150,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			} else if result.Screen >= 0 {
 				m.currentScreen = result.Screen
+				// If transitioning to group selection, initialize it
+				if result.Screen == ScreenGroupSelection {
+					return m, func() tea.Msg {
+						return GroupSelectionInitialized{
+							CurrentFile: m.classificationData.CurrentFile,
+						}
+					}
+				}
 				return m, nil
 			}
 			// result.Screen == -2 means no screen change
@@ -161,6 +171,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			// Other actions will be handled in later tasks (Task 15)
+		}
+
+		// Handle group selection screen keys
+		if m.currentScreen == ScreenGroupSelection && m.groupSelectionData != nil {
+			var keyMsg string
+			switch msg.Type {
+			case tea.KeyCtrlC:
+				keyMsg = "ctrl+c"
+			case tea.KeyEnter:
+				keyMsg = "enter"
+			case tea.KeyEsc:
+				keyMsg = "esc"
+			case tea.KeyUp:
+				keyMsg = "up"
+			case tea.KeyDown:
+				keyMsg = "down"
+			case tea.KeyBackspace:
+				keyMsg = "backspace"
+			case tea.KeySpace:
+				keyMsg = " "
+			default:
+				keyMsg = msg.String()
+			}
+
+			result := GroupSelectionUpdate(m.groupSelectionData, keyMsg)
+			if result.Screen == -1 {
+				return m, tea.Quit
+			} else if result.Screen >= 0 {
+				m.currentScreen = result.Screen
+				// If a group was selected, send GroupSelected message
+				if result.SelectedGroupID != "" {
+					return m, func() tea.Msg {
+						return GroupSelected{
+							GroupID:   result.SelectedGroupID,
+							GroupName: result.SelectedGroupName,
+						}
+					}
+				}
+				return m, nil
+			}
+			// result.Screen == -2 means no screen change, continue
 		}
 
 		// Global quit handler
@@ -178,6 +229,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ClassificationInitialized:
 		m.classificationData = NewClassificationData(m.state, msg.Files, msg.FileIndex)
+		return m, nil
+
+	case GroupSelectionInitialized:
+		m.groupSelectionData = NewGroupSelectionData(m.state, msg.CurrentFile)
+		return m, nil
+
+	case GroupSelected:
+		// Group was selected, will be handled in later tasks (Task 15)
+		// For now, just transition back to classification screen
 		return m, nil
 
 	case TransitionToScreen:
@@ -215,7 +275,10 @@ func (m Model) View() string {
 		}
 		return "Loading classification...\n\nPress Ctrl+C to quit"
 	case ScreenGroupSelection:
-		return "Group Selection Screen\n\nPress Ctrl+C to quit"
+		if m.groupSelectionData != nil {
+			return GroupSelectionView(m.groupSelectionData)
+		}
+		return "Loading group selection...\n\nPress Ctrl+C to quit"
 	case ScreenGroupInsertion:
 		return "Group Insertion Screen\n\nPress Ctrl+C to quit"
 	case ScreenReview:

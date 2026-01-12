@@ -29,3 +29,14 @@ type ClassificationInitialized struct {
 	Files     []string
 	FileIndex int
 }
+
+// GroupSelectionInitialized is sent when group selection screen is initialized
+type GroupSelectionInitialized struct {
+	CurrentFile string
+}
+
+// GroupSelected is sent when a group is selected from the group selection screen
+type GroupSelected struct {
+	GroupID   string
+	GroupName string
+}
