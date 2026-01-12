@@ -259,3 +259,41 @@ func TestNewGroup(t *testing.T) {
 		t.Error("expected unique IDs for different groups")
 	}
 }
+
+func TestState_SaveAndLoad(t *testing.T) {
+	tmpDir := t.TempDir()
+	statePath := tmpDir + "/.clip-tagger-state.json"
+
+	// Create and save state
+	original := NewState(tmpDir, SortByModifiedTime)
+	original.Groups = append(original.Groups, NewGroup("intro", 1))
+	original.CurrentIndex = 5
+
+	err := original.Save(statePath)
+	if err != nil {
+		t.Fatalf("failed to save: %v", err)
+	}
+
+	// Load state
+	loaded, err := Load(statePath)
+	if err != nil {
+		t.Fatalf("failed to load: %v", err)
+	}
+
+	if loaded.Directory != original.Directory {
+		t.Errorf("directory mismatch")
+	}
+	if loaded.CurrentIndex != 5 {
+		t.Errorf("expected index 5, got %d", loaded.CurrentIndex)
+	}
+	if len(loaded.Groups) != 1 {
+		t.Errorf("expected 1 group, got %d", len(loaded.Groups))
+	}
+}
+
+func TestLoad_NonExistent(t *testing.T) {
+	_, err := Load("/nonexistent/path/.clip-tagger-state.json")
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
