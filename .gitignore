@@ -1,0 +1,19 @@
+# Binaries
+clip-tagger
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Go workspace
+go.work
+
+# State files (for testing)
+.clip-tagger-state.json
+.clip-tagger.lock
