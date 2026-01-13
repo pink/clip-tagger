@@ -22,7 +22,9 @@ Why is this useful for me?
 2. The `XX_YY` structure lets me denote multiple takes of the same shot
 3. The group name lets me know at a glance what the file contains, or at least in a way that's relevant for me
 
-I would previously go video by video, watching each one, and then renaming the file in that format. It was exhausting, and even more tedious if I ever wanted to insert a new group in the middle of the list! This CLI makes this so much easier.
+I would do this for each video. Watching each one, and then renaming the file in this format. It was exhausting, and even more tedious if I ever wanted to insert a new group in the middle of the list!! (all sequence numbers +1...)
+
+`clip-tagger` makes this so much easier.
 
 I'm sure this workflow might evolve over time. With more complex projects, or with more subjects maybe, I could see this needing more granularity. But for now - it works for me 🙂.
 
