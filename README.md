@@ -1,28 +1,79 @@
 # clip-tagger
+Whenever I shoot projects, I always end up with dozens to hundreds of clips. The default naming convention for most cameras is time-based (e.g. `iPhone001_12161034_C083.mov`). This has its use cases, but isn't useful to me when editing.
 
-A terminal-based video file organization tool for bulk renaming video clips into semantic groups with take numbers.
+I created this CLI to help speed up a workflow I previously did manually. It essentially boils down to this naming convention:
+```
+[SequenceNumber_TakeNumber] GroupName.mov
+```
 
-## Overview
+Imagine you had 5 video files. The first one might be an intro, the next 3 might be multiple takes of you doing a magic trick, and the last an outro.
 
-clip-tagger helps you organize hundreds of video clips by:
-- Grouping clips by content/scene
-- Assigning sequential take numbers within each group
-- Generating structured filenames: `[XX_YY] GroupName.ext`
-- Providing an interactive TUI for classification
+With my naming convention, I would end up with a list of files that looked like this
+```
+[01_01] intro.mov
+[02_01] magic trick.mov
+[02_02] magic trick.mov
+[02_03] magic trick.mov
+[03_01] outro.mov
+```
 
-Perfect for video editors, content creators, and anyone managing large collections of video clips.
+Why is this useful for me?
+1. The number prefix lets me sort alphabetically and have the list in my preferred shot order
+2. The `XX_YY` structure lets me denote multiple takes of the same shot
+3. The group name lets me know at a glance what the file contains, or at least in a way that's relevant for me
 
-## Features
+I would previously go video by video, watching each one, and then renaming the file in that format. It was exhausting, and even more tedious if I ever wanted to insert a new group in the middle of the list! This CLI makes this so much easier.
 
-- **Interactive TUI** - Easy-to-use terminal interface built with Bubbletea
-- **Semantic Groups** - Organize clips by meaning (e.g., "Intro", "Scene 1", "B-Roll")
-- **Take Numbers** - Automatically number multiple takes of the same scene
-- **Resume Support** - Save progress and resume later
-- **Auto-save** - State persists automatically as you work
-- **Preview Files** - Open clips in your default video player
-- **Flexible Sorting** - Sort by name, modified time, or created time
-- **Conflict Detection** - Warns before overwriting existing files
-- **Copy or Rename** - Choose to rename in place or copy to new directory
+I'm sure this workflow might evolve over time. With more complex projects, or with more subjects maybe, I could see this needing more granularity. But for now - it works for me 🙂.
+
+## Getting Started
+A couple of notes:
+1. The CLI won't rename any files until you give it confirmation at the end, so it's relatively safe.
+2. After every clip, the CLI auto-saves progress locally, so you can quit out/leave and resume later.
+
+### 1) Start the CLI
+In your terminal of choice, navigate to a directory that contains your video files and start the CLI:
+```bash
+clip-tagger .
+```
+<img width="572" height="358" alt="image" src="https://github.com/user-attachments/assets/f2b41c12-e6ef-44d4-9222-30632a1ca28e" />
+
+
+
+### 2) Preview the current file
+Pressing `p` will open up the current file in your default video player.
+
+### 3) Categorize the clip
+You have 4 choices:
+
+**1 - Same as last**
+
+`(1)` will assign the clip to the last used group name.
+
+**2 - Select from existing groups**
+
+`(2)` will let you choose from one of the other previously used groups:
+<img width="572" height="356" alt="image" src="https://github.com/user-attachments/assets/ab6686b9-d2ed-4b00-9618-63dcd42ec2a5" />
+
+**3 - Create new group**
+
+`(3)` will let you create a new group and choose where in the list it gets added:
+<img width="572" height="357" alt="image" src="https://github.com/user-attachments/assets/b091d55b-2a3f-41f2-830d-e24b78bbbd6d" />
+
+**s - Skip this file**
+
+`(s)` will mark the file as skipped. Useful in case you want to defer until the end or delete altogether.
+
+### 4) Rinse and repeat
+Do this until all of the files in your directory have been reviewed.
+
+### 5) Finalize
+The last step is executing the rename. You can either rename files in-place in the current directory, or have copies made in a new directory.
+
+### 6) Adding new video files 
+If you end up adding more files to the current project, you can just drop the files into the same directory and call the CLI again.
+
+The CLI keeps track of what's already been classified, so you will be able to resume the workflow just focusing on the new files.
 
 ## Installation
 
@@ -60,6 +111,28 @@ source ~/.zshrc  # or source ~/.bashrc
 ```bash
 clip-tagger --help
 ```
+
+## Overview
+
+clip-tagger helps you organize hundreds of video clips by:
+- Grouping clips by content/scene
+- Assigning sequential take numbers within each group
+- Generating structured filenames: `[XX_YY] GroupName.ext`
+- Providing an interactive TUI for classification
+
+Perfect for video editors, content creators, and anyone managing large collections of video clips.
+
+## Features
+
+- **Interactive TUI** - Easy-to-use terminal interface built with Bubbletea
+- **Semantic Groups** - Organize clips by meaning (e.g., "Intro", "Scene 1", "B-Roll")
+- **Take Numbers** - Automatically number multiple takes of the same scene
+- **Resume Support** - Save progress and resume later
+- **Auto-save** - State persists automatically as you work
+- **Preview Files** - Open clips in your default video player
+- **Flexible Sorting** - Sort by name, modified time, or created time
+- **Conflict Detection** - Warns before overwriting existing files
+- **Copy or Rename** - Choose to rename in place or copy to new directory
 
 ## Usage
 
