@@ -93,7 +93,7 @@ func CompletionView(data *CompletionData) string {
 	}
 
 	// Header
-	output += "=== Mode Selection ===\n\n"
+	output += RenderHeader("=== Mode Selection ===") + "\n\n"
 
 	// Show mode options
 	modes := []string{
@@ -102,15 +102,17 @@ func CompletionView(data *CompletionData) string {
 	}
 
 	for i, mode := range modes {
-		indicator := "  "
 		if i == data.SelectedMode {
-			indicator = "> "
+			output += RenderCursor("> ") + RenderHighlight(mode)
+		} else {
+			output += "  " + mode
 		}
-		output += indicator + mode
 
 		// Show output directory for copy mode
 		if i == 1 {
-			output += fmt.Sprintf("\n     Output: %s", filepath.Base(data.OutputDirectory))
+			output += fmt.Sprintf("\n     %s %s",
+				RenderMuted("Output:"),
+				RenderMuted(filepath.Base(data.OutputDirectory)))
 		}
 
 		output += "\n"
@@ -120,34 +122,36 @@ func CompletionView(data *CompletionData) string {
 
 	// Show conflict warning if any
 	if data.HasConflicts {
-		output += "WARNING: Conflicts Detected!\n"
-		output += fmt.Sprintf("%d file(s) would overwrite existing files:\n\n", len(data.Conflicts))
+		output += RenderDanger("WARNING: Conflicts Detected!") + "\n"
+		output += RenderWarning(fmt.Sprintf("%d file(s) would overwrite existing files:", len(data.Conflicts))) + "\n\n"
 
 		// Show up to 5 conflicts
 		maxShow := 5
 		for i, conflict := range data.Conflicts {
 			if i >= maxShow {
 				remaining := len(data.Conflicts) - maxShow
-				output += fmt.Sprintf("  ... and %d more\n", remaining)
+				output += RenderWarning(fmt.Sprintf("  ... and %d more", remaining)) + "\n"
 				break
 			}
-			output += fmt.Sprintf("  - %s -> %s\n",
-				filepath.Base(conflict.OriginalPath),
+			output += fmt.Sprintf("  %s %s %s %s\n",
+				RenderMuted("-"),
+				RenderMuted(filepath.Base(conflict.OriginalPath)),
+				RenderMuted("->"),
 				filepath.Base(conflict.TargetPath))
 		}
 
 		output += "\n"
-		output += "These files will be OVERWRITTEN if you proceed.\n\n"
+		output += RenderDanger("These files will be OVERWRITTEN if you proceed.") + "\n\n"
 	}
 
 	// Instructions
-	output += "Controls:\n"
-	output += "  Up/Down - Select mode\n"
-	output += "  Enter - Execute operation\n"
+	output += RenderMuted("Controls:") + "\n"
+	output += RenderKeyHint("  Up/Down - Select mode") + "\n"
+	output += RenderKeyHint("  Enter - Execute operation") + "\n"
 	if data.HasConflicts {
-		output += "  Esc - Go back (abort)\n"
+		output += RenderKeyHint("  Esc - Go back (abort)") + "\n"
 	}
-	output += "  q - Quit\n"
+	output += RenderKeyHint("  q - Quit") + "\n"
 
 	return output
 }
@@ -157,19 +161,21 @@ func renderExecutionResult(result *CompletionExecutionResult) string {
 	var output string
 
 	if result.Success {
-		output += "=== Success! ===\n\n"
-		output += fmt.Sprintf("Operation: %s\n", result.Mode)
-		output += fmt.Sprintf("Files changed: %d\n\n", result.FilesChanged)
-		output += "All files have been successfully renamed.\n\n"
+		output += RenderSuccess("=== Success! ===") + "\n\n"
+		output += fmt.Sprintf("%s %s\n", RenderMuted("Operation:"), result.Mode)
+		output += fmt.Sprintf("%s %s\n\n",
+			RenderMuted("Files changed:"),
+			RenderSuccess(fmt.Sprintf("%d", result.FilesChanged)))
+		output += RenderSuccess("All files have been successfully renamed.") + "\n\n"
 	} else {
-		output += "=== Error ===\n\n"
-		output += "Failed to complete operation.\n\n"
+		output += RenderDanger("=== Error ===") + "\n\n"
+		output += RenderDanger("Failed to complete operation.") + "\n\n"
 		if result.Error != nil {
-			output += fmt.Sprintf("Error: %v\n\n", result.Error)
+			output += fmt.Sprintf("%s %v\n\n", RenderMuted("Error:"), result.Error)
 		}
 	}
 
-	output += "Press any key to exit\n"
+	output += RenderKeyHint("Press any key to exit") + "\n"
 
 	return output
 }
@@ -241,5 +247,30 @@ func executeOperation(data *CompletionData) {
 		FilesChanged: filesChanged,
 		Mode:         mode,
 		Error:        err,
+	}
+}
+
+// updateStateAfterRename updates state Classifications to use new filenames after successful rename
+func updateStateAfterRename(appState *state.State, renames []renamer.Rename, mode string, outputDir string) {
+	// Build mapping from old filename to new filename
+	filenameMap := make(map[string]string)
+	for _, r := range renames {
+		oldFilename := filepath.Base(r.OriginalPath)
+		newFilename := filepath.Base(r.TargetPath)
+		if oldFilename != newFilename {
+			filenameMap[oldFilename] = newFilename
+		}
+	}
+
+	// Update all Classifications to use new filenames
+	for i := range appState.Classifications {
+		if newFilename, exists := filenameMap[appState.Classifications[i].File]; exists {
+			appState.Classifications[i].File = newFilename
+		}
+	}
+
+	// If copy to directory mode, update the directory path
+	if mode == "Copy to new directory" {
+		appState.Directory = outputDir
 	}
 }

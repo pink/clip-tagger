@@ -9,13 +9,26 @@ import (
 	"github.com/google/uuid"
 )
 
+// GroupInsertionMode represents the mode of group insertion
+type GroupInsertionMode int
+
+const (
+	ModeNameEntry GroupInsertionMode = iota
+	ModeInsertionChoice
+	ModeGroupSelection
+)
+
 // GroupInsertionData contains the data needed to render the group insertion screen
 type GroupInsertionData struct {
 	CurrentFile      string
-	Mode             string // "name_entry" or "position_selection"
+	Mode             GroupInsertionMode
 	GroupName        string
 	ExistingGroups   []state.Group
-	SelectedPosition int // Index for insertion position (0 = before first, len(groups) = after last)
+	FilteredGroups   []state.Group // Filtered list based on FilterQuery
+	FilterQuery      string        // Query text for filtering groups
+	SelectedPosition int           // Index for cursor position in choice/selection modes
+	ScrollOffset     int           // Track scroll position for group lists
+	ViewportHeight   int           // Number of items to show (default: 10)
 }
 
 // GroupInsertionUpdateResult contains the result of a group insertion update
@@ -30,10 +43,14 @@ type GroupInsertionUpdateResult struct {
 func NewGroupInsertionData(appState *state.State, currentFile string) *GroupInsertionData {
 	return &GroupInsertionData{
 		CurrentFile:      currentFile,
-		Mode:             "name_entry",
+		Mode:             ModeNameEntry,
 		GroupName:        "",
 		ExistingGroups:   appState.Groups,
+		FilteredGroups:   appState.Groups, // Initially show all groups
+		FilterQuery:      "",
 		SelectedPosition: 0,
+		ScrollOffset:     0,
+		ViewportHeight:   10,
 	}
 }
 
@@ -42,67 +59,124 @@ func GroupInsertionView(data *GroupInsertionData) string {
 	var output strings.Builder
 
 	// Header
-	output.WriteString("=== Group Insertion ===\n\n")
-	output.WriteString(fmt.Sprintf("Classifying: %s\n\n", data.CurrentFile))
+	output.WriteString(RenderHeader("=== Group Insertion ===") + "\n\n")
+	output.WriteString(fmt.Sprintf("%s %s\n\n", RenderMuted("Classifying:"), RenderSubheader(data.CurrentFile)))
 
-	if data.Mode == "name_entry" {
+	switch data.Mode {
+	case ModeNameEntry:
 		// Name entry mode
-		output.WriteString("Enter new group name:\n")
-		output.WriteString(fmt.Sprintf("> %s\n\n", data.GroupName))
+		output.WriteString(RenderHighlight("Enter new group name:") + "\n")
+		output.WriteString(fmt.Sprintf("%s %s\n\n", RenderCursor(">"), RenderSubheader(data.GroupName)))
 
-		// Show existing groups if any
+		// Show existing groups if any (with viewport to keep input on screen)
 		if len(data.ExistingGroups) > 0 {
-			output.WriteString("Existing groups:\n")
-			for _, group := range data.ExistingGroups {
-				output.WriteString(fmt.Sprintf("  [%d] %s\n", group.Order, group.Name))
+			output.WriteString(RenderMuted("Existing groups:") + "\n")
+
+			// Show maximum 5 groups to keep input on screen
+			maxShow := 5
+			if len(data.ExistingGroups) > maxShow {
+				for i := 0; i < maxShow; i++ {
+					group := data.ExistingGroups[i]
+					output.WriteString(fmt.Sprintf("  %s %s\n",
+						RenderMuted(fmt.Sprintf("[%d]", group.Order)),
+						group.Name))
+				}
+				remaining := len(data.ExistingGroups) - maxShow
+				output.WriteString(RenderMuted(fmt.Sprintf("  ... and %d more groups\n", remaining)))
+			} else {
+				for _, group := range data.ExistingGroups {
+					output.WriteString(fmt.Sprintf("  %s %s\n",
+						RenderMuted(fmt.Sprintf("[%d]", group.Order)),
+						group.Name))
+				}
 			}
 			output.WriteString("\n")
 		}
 
-		output.WriteString("Instructions:\n")
-		output.WriteString("  Type to enter group name\n")
-		output.WriteString("  Enter to proceed to position selection\n")
-		output.WriteString("  Backspace to delete characters\n")
-		output.WriteString("  Esc to cancel\n")
-		output.WriteString("  Ctrl+C to quit\n")
+		output.WriteString(RenderMuted("Instructions:") + "\n")
+		output.WriteString(RenderKeyHint("  Type to enter group name") + "\n")
+		output.WriteString(RenderKeyHint("  Enter to proceed") + "\n")
+		output.WriteString(RenderKeyHint("  Backspace to delete characters") + "\n")
+		output.WriteString(RenderKeyHint("  Esc to cancel") + "\n")
+		output.WriteString(RenderKeyHint("  Ctrl+C to quit") + "\n")
 
-	} else {
-		// Position selection mode
-		output.WriteString(fmt.Sprintf("Position for '%s':\n\n", data.GroupName))
+	case ModeInsertionChoice:
+		// Insertion choice mode
+		output.WriteString(RenderHighlight(fmt.Sprintf("Where should \"%s\" be added?", data.GroupName)) + "\n\n")
 
-		// Show insertion positions
-		if len(data.ExistingGroups) == 0 {
-			// No existing groups
-			output.WriteString("  > Insert as first group\n\n")
+		// Show options
+		options := []string{
+			"1. Add to end",
+			"2. Insert after existing group",
+		}
+
+		for i, option := range options {
+			if i == data.SelectedPosition {
+				output.WriteString(fmt.Sprintf("%s %s\n", RenderCursor(">"), RenderHighlight(option)))
+			} else {
+				output.WriteString(fmt.Sprintf("  %s\n", option))
+			}
+		}
+
+		output.WriteString("\n")
+		output.WriteString(RenderMuted("Instructions:") + "\n")
+		output.WriteString(RenderKeyHint("  1-2 or Up/Down to select") + "\n")
+		output.WriteString(RenderKeyHint("  Enter to confirm") + "\n")
+		output.WriteString(RenderKeyHint("  Esc to go back") + "\n")
+		output.WriteString(RenderKeyHint("  Ctrl+C to quit") + "\n")
+
+	case ModeGroupSelection:
+		// Group selection mode
+		output.WriteString(RenderHighlight("Select group to insert after:") + "\n\n")
+
+		// Filter input
+		output.WriteString(fmt.Sprintf("%s %s\n\n", RenderMuted("Filter:"), RenderSubheader(data.FilterQuery)))
+
+		// Show filtered groups with viewport
+		if len(data.FilteredGroups) == 0 {
+			output.WriteString(RenderWarning("No groups match your filter.") + "\n")
 		} else {
-			// Show all possible insertion positions
-			for i := 0; i <= len(data.ExistingGroups); i++ {
-				indicator := "  "
-				if i == data.SelectedPosition {
-					indicator = "> "
-				}
+			// Calculate visible window
+			startIdx := data.ScrollOffset
+			endIdx := data.ScrollOffset + data.ViewportHeight
+			if endIdx > len(data.FilteredGroups) {
+				endIdx = len(data.FilteredGroups)
+			}
 
-				if i == 0 {
-					output.WriteString(fmt.Sprintf("%sInsert at beginning (before [%d] %s)\n",
-						indicator, data.ExistingGroups[0].Order, data.ExistingGroups[0].Name))
-				} else if i == len(data.ExistingGroups) {
-					output.WriteString(fmt.Sprintf("%sInsert at end (after [%d] %s)\n",
-						indicator, data.ExistingGroups[i-1].Order, data.ExistingGroups[i-1].Name))
+			// Show scroll indicator if needed
+			if data.ScrollOffset > 0 {
+				output.WriteString(RenderMuted("  ... (more items above)") + "\n")
+			}
+
+			// Display groups in viewport
+			for i := startIdx; i < endIdx; i++ {
+				group := data.FilteredGroups[i]
+				if i == data.SelectedPosition {
+					output.WriteString(fmt.Sprintf("%s %s %s\n",
+						RenderCursor(">"),
+						RenderMuted(fmt.Sprintf("[%d]", group.Order)),
+						RenderHighlight(group.Name)))
 				} else {
-					output.WriteString(fmt.Sprintf("%sInsert between [%d] %s and [%d] %s\n",
-						indicator,
-						data.ExistingGroups[i-1].Order, data.ExistingGroups[i-1].Name,
-						data.ExistingGroups[i].Order, data.ExistingGroups[i].Name))
+					output.WriteString(fmt.Sprintf("  %s %s\n",
+						RenderMuted(fmt.Sprintf("[%d]", group.Order)),
+						group.Name))
 				}
 			}
-			output.WriteString("\n")
+
+			// Show scroll indicator if needed
+			if endIdx < len(data.FilteredGroups) {
+				output.WriteString(RenderMuted("  ... (more items below)") + "\n")
+			}
 		}
 
-		output.WriteString("Instructions:\n")
-		output.WriteString("  Arrow keys to choose position\n")
-		output.WriteString("  Enter to confirm\n")
-		output.WriteString("  Esc to go back to name entry\n")
-		output.WriteString("  Ctrl+C to quit\n")
+		output.WriteString("\n")
+		output.WriteString(RenderMuted("Instructions:") + "\n")
+		output.WriteString(RenderKeyHint("  Type to filter groups") + "\n")
+		output.WriteString(RenderKeyHint("  Up/Down to navigate") + "\n")
+		output.WriteString(RenderKeyHint("  Enter to select") + "\n")
+		output.WriteString(RenderKeyHint("  Backspace to delete filter character") + "\n")
+		output.WriteString(RenderKeyHint("  Esc to go back") + "\n")
+		output.WriteString(RenderKeyHint("  Ctrl+C to quit") + "\n")
 	}
 
 	return output.String()
@@ -110,10 +184,15 @@ func GroupInsertionView(data *GroupInsertionData) string {
 
 // GroupInsertionUpdate handles input for the group insertion screen
 func GroupInsertionUpdate(data *GroupInsertionData, msg string) GroupInsertionUpdateResult {
-	if data.Mode == "name_entry" {
+	switch data.Mode {
+	case ModeNameEntry:
 		return handleNameEntry(data, msg)
-	} else {
-		return handlePositionSelection(data, msg)
+	case ModeInsertionChoice:
+		return handleInsertionChoice(data, msg)
+	case ModeGroupSelection:
+		return handleGroupSelection(data, msg)
+	default:
+		return GroupInsertionUpdateResult{Screen: -2}
 	}
 }
 
@@ -123,14 +202,19 @@ func handleNameEntry(data *GroupInsertionData, msg string) GroupInsertionUpdateR
 	case "enter":
 		// Only proceed if name is not empty
 		if data.GroupName != "" {
-			// If no existing groups, skip position selection and create immediately
+			// If no existing groups, create immediately at order 1
 			if len(data.ExistingGroups) == 0 {
-				data.Mode = "position_selection"
-				data.SelectedPosition = 0
+				groupID := uuid.New().String()
+				return GroupInsertionUpdateResult{
+					Screen:            ScreenClassification,
+					InsertedGroupID:   groupID,
+					InsertedGroupName: data.GroupName,
+					InsertedOrder:     1,
+				}
 			} else {
-				// Switch to position selection mode
-				data.Mode = "position_selection"
-				data.SelectedPosition = 0
+				// Switch to insertion choice mode
+				data.Mode = ModeInsertionChoice
+				data.SelectedPosition = 0 // Default to first option (add to end)
 			}
 		}
 		return GroupInsertionUpdateResult{Screen: -2}
@@ -160,10 +244,8 @@ func handleNameEntry(data *GroupInsertionData, msg string) GroupInsertionUpdateR
 	}
 }
 
-// handlePositionSelection handles input in position selection mode
-func handlePositionSelection(data *GroupInsertionData, msg string) GroupInsertionUpdateResult {
-	maxPosition := len(data.ExistingGroups) // Maximum position index
-
+// handleInsertionChoice handles input in insertion choice mode
+func handleInsertionChoice(data *GroupInsertionData, msg string) GroupInsertionUpdateResult {
 	switch msg {
 	case "up":
 		// Move selection up
@@ -174,15 +256,15 @@ func handlePositionSelection(data *GroupInsertionData, msg string) GroupInsertio
 
 	case "down":
 		// Move selection down
-		if data.SelectedPosition < maxPosition {
+		if data.SelectedPosition < 1 {
 			data.SelectedPosition++
 		}
 		return GroupInsertionUpdateResult{Screen: -2}
 
-	case "enter":
-		// Confirm position and create group
+	case "1":
+		// Option 1: Add to end
 		groupID := uuid.New().String()
-		order := calculateInsertionOrder(data.ExistingGroups, data.SelectedPosition)
+		order := len(data.ExistingGroups) + 1
 
 		return GroupInsertionUpdateResult{
 			Screen:            ScreenClassification,
@@ -191,9 +273,41 @@ func handlePositionSelection(data *GroupInsertionData, msg string) GroupInsertio
 			InsertedOrder:     order,
 		}
 
+	case "2":
+		// Option 2: Insert after existing group
+		data.Mode = ModeGroupSelection
+		data.SelectedPosition = 0
+		data.ScrollOffset = 0
+		data.FilterQuery = ""
+		data.FilteredGroups = data.ExistingGroups
+		return GroupInsertionUpdateResult{Screen: -2}
+
+	case "enter":
+		// Confirm current selection
+		if data.SelectedPosition == 0 {
+			// Option 1: Add to end
+			groupID := uuid.New().String()
+			order := len(data.ExistingGroups) + 1
+
+			return GroupInsertionUpdateResult{
+				Screen:            ScreenClassification,
+				InsertedGroupID:   groupID,
+				InsertedGroupName: data.GroupName,
+				InsertedOrder:     order,
+			}
+		} else {
+			// Option 2: Insert after existing group
+			data.Mode = ModeGroupSelection
+			data.SelectedPosition = 0
+			data.ScrollOffset = 0
+			data.FilterQuery = ""
+			data.FilteredGroups = data.ExistingGroups
+			return GroupInsertionUpdateResult{Screen: -2}
+		}
+
 	case "esc":
 		// Go back to name entry mode
-		data.Mode = "name_entry"
+		data.Mode = ModeNameEntry
 		return GroupInsertionUpdateResult{Screen: -2}
 
 	case "ctrl+c":
@@ -206,13 +320,102 @@ func handlePositionSelection(data *GroupInsertionData, msg string) GroupInsertio
 	}
 }
 
-// calculateInsertionOrder calculates the order number for a new group at the given position
-func calculateInsertionOrder(existingGroups []state.Group, position int) int {
-	if len(existingGroups) == 0 {
-		return 1
+// handleGroupSelection handles input in group selection mode
+func handleGroupSelection(data *GroupInsertionData, msg string) GroupInsertionUpdateResult {
+	switch msg {
+	case "up":
+		// Move selection up
+		if data.SelectedPosition > 0 {
+			data.SelectedPosition--
+
+			// Adjust scroll offset if selection moves above viewport
+			if data.SelectedPosition < data.ScrollOffset {
+				data.ScrollOffset = data.SelectedPosition
+			}
+		}
+		return GroupInsertionUpdateResult{Screen: -2}
+
+	case "down":
+		// Move selection down
+		if len(data.FilteredGroups) > 0 && data.SelectedPosition < len(data.FilteredGroups)-1 {
+			data.SelectedPosition++
+
+			// Adjust scroll offset if selection moves below viewport
+			if data.SelectedPosition >= data.ScrollOffset+data.ViewportHeight {
+				data.ScrollOffset = data.SelectedPosition - data.ViewportHeight + 1
+			}
+		}
+		return GroupInsertionUpdateResult{Screen: -2}
+
+	case "enter":
+		// Select current group and insert after it
+		if len(data.FilteredGroups) > 0 && data.SelectedPosition < len(data.FilteredGroups) {
+			selectedGroup := data.FilteredGroups[data.SelectedPosition]
+			groupID := uuid.New().String()
+			// Insert after selected group: new order = selected group order + 1
+			order := selectedGroup.Order + 1
+
+			return GroupInsertionUpdateResult{
+				Screen:            ScreenClassification,
+				InsertedGroupID:   groupID,
+				InsertedGroupName: data.GroupName,
+				InsertedOrder:     order,
+			}
+		}
+		return GroupInsertionUpdateResult{Screen: -2}
+
+	case "backspace":
+		// Remove last character from filter
+		if len(data.FilterQuery) > 0 {
+			data.FilterQuery = data.FilterQuery[:len(data.FilterQuery)-1]
+			data.FilteredGroups = filterGroupsByName(data.ExistingGroups, data.FilterQuery)
+			// Reset selection AND scroll to top
+			data.SelectedPosition = 0
+			data.ScrollOffset = 0
+		}
+		return GroupInsertionUpdateResult{Screen: -2}
+
+	case "esc":
+		// Go back to insertion choice mode
+		data.Mode = ModeInsertionChoice
+		data.SelectedPosition = 0
+		return GroupInsertionUpdateResult{Screen: -2}
+
+	case "ctrl+c":
+		// Quit
+		return GroupInsertionUpdateResult{Screen: -1}
+
+	default:
+		// Check if it's a printable character for filtering
+		if len(msg) == 1 || msg == " " {
+			// Add to filter query
+			data.FilterQuery += msg
+			data.FilteredGroups = filterGroupsByName(data.ExistingGroups, data.FilterQuery)
+			// Reset selection AND scroll to top
+			data.SelectedPosition = 0
+			data.ScrollOffset = 0
+			return GroupInsertionUpdateResult{Screen: -2}
+		}
+
+		// Unknown key, no action
+		return GroupInsertionUpdateResult{Screen: -2}
+	}
+}
+
+// filterGroupsByName filters groups by case-insensitive substring matching
+func filterGroupsByName(groups []state.Group, query string) []state.Group {
+	if query == "" {
+		return groups
 	}
 
-	// Position is where to insert (0 = before first, len = after last)
-	// The order should be the position + 1, which is where it will be after insertion
-	return position + 1
+	lowerQuery := strings.ToLower(query)
+	filtered := make([]state.Group, 0)
+
+	for _, group := range groups {
+		if strings.Contains(strings.ToLower(group.Name), lowerQuery) {
+			filtered = append(filtered, group)
+		}
+	}
+
+	return filtered
 }

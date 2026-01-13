@@ -14,6 +14,8 @@ type GroupSelectionData struct {
 	FilteredGroups []state.Group
 	FilterText     string
 	SelectedIndex  int
+	ScrollOffset   int // Track scroll position
+	ViewportHeight int // Number of items to show (default: 10)
 }
 
 // GroupSelectionUpdateResult contains the result of a group selection update
@@ -31,6 +33,8 @@ func NewGroupSelectionData(appState *state.State, currentFile string) *GroupSele
 		FilteredGroups: appState.Groups,
 		FilterText:     "",
 		SelectedIndex:  0,
+		ScrollOffset:   0,
+		ViewportHeight: 10,
 	}
 }
 
@@ -57,40 +61,65 @@ func GroupSelectionView(data *GroupSelectionData) string {
 	var output string
 
 	// Header with current file context
-	output += fmt.Sprintf("=== Group Selection ===\n\n")
-	output += fmt.Sprintf("Classifying: %s\n\n", data.CurrentFile)
+	output += RenderHeader("=== Group Selection ===") + "\n\n"
+	output += fmt.Sprintf("%s %s\n\n", RenderMuted("Classifying:"), RenderSubheader(data.CurrentFile))
 
 	// Filter input
-	output += fmt.Sprintf("Filter: %s\n\n", data.FilterText)
+	output += fmt.Sprintf("%s %s\n\n", RenderMuted("Filter:"), RenderHighlight(data.FilterText))
 
 	// List of groups
 	if len(data.FilteredGroups) == 0 {
-		output += "No groups available.\n"
+		output += RenderWarning("No groups available.") + "\n"
 		if data.FilterText != "" {
-			output += fmt.Sprintf("No groups match '%s'.\n", data.FilterText)
+			output += RenderWarning(fmt.Sprintf("No groups match '%s'.", data.FilterText)) + "\n"
 		}
 	} else {
-		output += "Groups:\n"
-		for i, group := range data.FilteredGroups {
+		output += RenderHighlight("Groups:") + "\n"
+
+		// Calculate visible window
+		startIdx := data.ScrollOffset
+		endIdx := data.ScrollOffset + data.ViewportHeight
+		if endIdx > len(data.FilteredGroups) {
+			endIdx = len(data.FilteredGroups)
+		}
+
+		// Show scroll indicator if needed
+		if data.ScrollOffset > 0 {
+			output += RenderMuted("  ... (more items above)") + "\n"
+		}
+
+		// Display groups in viewport
+		for i := startIdx; i < endIdx; i++ {
+			group := data.FilteredGroups[i]
 			// Show selection indicator
-			indicator := "  "
 			if i == data.SelectedIndex {
-				indicator = "> "
+				output += fmt.Sprintf("%s %s %s\n",
+					RenderCursor(">"),
+					RenderMuted(fmt.Sprintf("[%d]", group.Order)),
+					RenderHighlight(group.Name))
+			} else {
+				output += fmt.Sprintf("  %s %s\n",
+					RenderMuted(fmt.Sprintf("[%d]", group.Order)),
+					group.Name)
 			}
-			output += fmt.Sprintf("%s[%d] %s\n", indicator, group.Order, group.Name)
+		}
+
+		// Show scroll indicator if needed
+		if endIdx < len(data.FilteredGroups) {
+			output += RenderMuted("  ... (more items below)") + "\n"
 		}
 	}
 
 	output += "\n"
 
 	// Instructions
-	output += "Instructions:\n"
-	output += "  Type to filter groups (case-insensitive)\n"
-	output += "  Use arrow keys to navigate\n"
-	output += "  Enter to select\n"
-	output += "  Backspace to delete filter character\n"
-	output += "  Esc to cancel\n"
-	output += "  Ctrl+C to quit\n"
+	output += RenderMuted("Instructions:") + "\n"
+	output += RenderKeyHint("  Type to filter groups (case-insensitive)") + "\n"
+	output += RenderKeyHint("  Use arrow keys to navigate") + "\n"
+	output += RenderKeyHint("  Enter to select") + "\n"
+	output += RenderKeyHint("  Backspace to delete filter character") + "\n"
+	output += RenderKeyHint("  Esc to cancel") + "\n"
+	output += RenderKeyHint("  Ctrl+C to quit") + "\n"
 
 	return output
 }
@@ -102,6 +131,11 @@ func GroupSelectionUpdate(data *GroupSelectionData, msg string) GroupSelectionUp
 		// Move selection up
 		if data.SelectedIndex > 0 {
 			data.SelectedIndex--
+
+			// Adjust scroll offset if selection moves above viewport
+			if data.SelectedIndex < data.ScrollOffset {
+				data.ScrollOffset = data.SelectedIndex
+			}
 		}
 		return GroupSelectionUpdateResult{Screen: -2}
 
@@ -109,6 +143,11 @@ func GroupSelectionUpdate(data *GroupSelectionData, msg string) GroupSelectionUp
 		// Move selection down
 		if len(data.FilteredGroups) > 0 && data.SelectedIndex < len(data.FilteredGroups)-1 {
 			data.SelectedIndex++
+
+			// Adjust scroll offset if selection moves below viewport
+			if data.SelectedIndex >= data.ScrollOffset+data.ViewportHeight {
+				data.ScrollOffset = data.SelectedIndex - data.ViewportHeight + 1
+			}
 		}
 		return GroupSelectionUpdateResult{Screen: -2}
 
@@ -141,8 +180,9 @@ func GroupSelectionUpdate(data *GroupSelectionData, msg string) GroupSelectionUp
 		if len(data.FilterText) > 0 {
 			data.FilterText = data.FilterText[:len(data.FilterText)-1]
 			data.FilteredGroups = filterGroups(data.AllGroups, data.FilterText)
-			// Reset selection to top
+			// Reset selection AND scroll to top
 			data.SelectedIndex = 0
+			data.ScrollOffset = 0
 		}
 		return GroupSelectionUpdateResult{Screen: -2}
 
@@ -152,8 +192,9 @@ func GroupSelectionUpdate(data *GroupSelectionData, msg string) GroupSelectionUp
 			// Add to filter text
 			data.FilterText += msg
 			data.FilteredGroups = filterGroups(data.AllGroups, data.FilterText)
-			// Reset selection to top
+			// Reset selection AND scroll to top
 			data.SelectedIndex = 0
+			data.ScrollOffset = 0
 			return GroupSelectionUpdateResult{Screen: -2}
 		}
 

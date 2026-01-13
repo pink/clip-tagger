@@ -74,7 +74,7 @@ func NewModel(appState *state.State, directory string) Model {
 		reviewData:         nil,
 		completionData:     nil,
 		files:              []string{},
-		currentFileIndex:   0,
+		currentFileIndex:   appState.CurrentIndex,
 		actionCounter:      0,
 		actionsPerSave:     5, // Default: save every 5 actions
 	}
@@ -101,6 +101,19 @@ func (m Model) Init() tea.Cmd {
 		var mergeResult *state.MergeResult
 		if len(m.state.Classifications) > 0 {
 			mergeResult = state.MergeFiles(m.state, scannedFiles)
+
+			// Auto-repair: Try to match missing files to renamed files
+			if mergeResult != nil && len(mergeResult.MissingFiles) > 0 {
+				repairedCount := m.state.RepairRenamedFiles(scannedFiles)
+				if repairedCount > 0 {
+					// Save repaired state
+					statePath := state.StateFilePath(m.state.Directory)
+					_ = m.state.Save(statePath) // Ignore error - repair is best-effort
+
+					// Re-run merge to get updated missing files list
+					mergeResult = state.MergeFiles(m.state, scannedFiles)
+				}
+			}
 		}
 
 		return StartupInitialized{
@@ -353,6 +366,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			result := CompletionUpdate(m.completionData, keyMsg)
+
+			// If completion execution succeeded, update state with new filenames
+			if m.completionData.ExecutionResult != nil && m.completionData.ExecutionResult.Success {
+				updateStateAfterRename(
+					m.state,
+					m.completionData.Renames,
+					m.completionData.ExecutionResult.Mode,
+					m.completionData.OutputDirectory,
+				)
+				m = m.autoSaveState()
+			}
+
 			if result.Screen == -1 {
 				return m, tea.Quit
 			} else if result.Screen >= 0 {
@@ -372,7 +397,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.startupData = NewStartupData(m.state, msg.ScannedFiles, msg.MergeResult)
 		// Store files for classification
 		m.files = msg.ScannedFiles
-		m.currentFileIndex = 0
+		// Validate currentFileIndex bounds
+		if m.currentFileIndex >= len(m.files) {
+			// All files classified, go directly to review
+			m.currentScreen = ScreenReview
+		}
+		if m.currentFileIndex < 0 {
+			m.currentFileIndex = 0
+		}
 		return m, nil
 
 	case ClassificationInitialized:

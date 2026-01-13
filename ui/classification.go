@@ -75,29 +75,30 @@ func ClassificationView(data *ClassificationData) string {
 	var output string
 
 	// Header with progress
-	output += fmt.Sprintf("=== Classification: File %d of %d ===\n\n", data.CurrentIndex, data.TotalFiles)
+	output += RenderHeader(fmt.Sprintf("=== Classification: File %d of %d ===", data.CurrentIndex, data.TotalFiles)) + "\n\n"
 
 	// Current file info
-	output += fmt.Sprintf("File: %s\n", data.CurrentFile)
-	output += fmt.Sprintf("Path: %s\n\n", data.FilePath)
+	output += fmt.Sprintf("%s %s\n", RenderMuted("File:"), RenderSubheader(data.CurrentFile))
+	output += fmt.Sprintf("%s %s\n\n", RenderMuted("Path:"), RenderMuted(data.FilePath))
 
 	// Progress indicator
 	progressBar := makeProgressBar(data.CurrentIndex, data.TotalFiles, 30)
-	output += fmt.Sprintf("Progress: %s\n\n", progressBar)
+	output += RenderProgress(data.CurrentIndex, data.TotalFiles) + "\n"
+	output += progressBar + "\n\n"
 
 	// Available actions
-	output += "Actions:\n"
-	output += "  'p' - Preview file\n"
+	output += RenderHighlight("Actions:") + "\n"
+	output += RenderKeyHint("  'p' - Preview file") + "\n"
 
 	// "Same as last" only if previous classification exists
 	if data.HasPreviousClassification {
-		output += fmt.Sprintf("  '1' - Same as last (%s)\n", data.PreviousGroupName)
+		output += RenderKeyHint(fmt.Sprintf("  '1' - Same as last (%s)", data.PreviousGroupName)) + "\n"
 	}
 
-	output += "  '2' - Select from existing groups\n"
-	output += "  '3' - Create new group\n"
-	output += "  's' - Skip this file\n"
-	output += "  'q' - Quit\n"
+	output += RenderKeyHint("  '2' - Select from existing groups") + "\n"
+	output += RenderKeyHint("  '3' - Create new group") + "\n"
+	output += RenderKeyHint("  's' - Skip this file") + "\n"
+	output += RenderKeyHint("  'q' - Quit") + "\n"
 
 	return output
 }
@@ -174,5 +175,5 @@ func makeProgressBar(current, total, width int) string {
 	percentage := (current * 100) / total
 	bar += fmt.Sprintf(" %d%%", percentage)
 
-	return bar
+	return RenderMuted(bar)
 }

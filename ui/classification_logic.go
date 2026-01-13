@@ -28,6 +28,7 @@ func (m Model) handleClassificationSameAsLast() Model {
 
 	// Advance to next file
 	m.currentFileIndex++
+	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
 	if m.currentFileIndex >= len(m.files) {
@@ -56,6 +57,7 @@ func (m Model) handleGroupSelected(groupID string) Model {
 
 	// Advance to next file
 	m.currentFileIndex++
+	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
 	if m.currentFileIndex >= len(m.files) {
@@ -87,6 +89,7 @@ func (m Model) handleGroupInserted(groupID, groupName string, order int) Model {
 
 	// Advance to next file
 	m.currentFileIndex++
+	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
 	if m.currentFileIndex >= len(m.files) {
@@ -117,6 +120,7 @@ func (m Model) handleClassificationSkip() Model {
 
 	// Advance to next file
 	m.currentFileIndex++
+	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
 	if m.currentFileIndex >= len(m.files) {

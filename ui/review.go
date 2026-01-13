@@ -131,19 +131,22 @@ func ReviewView(data *ReviewData) string {
 	var output string
 
 	// Header
-	output += "=== Review Changes ===\n\n"
+	output += RenderHeader("=== Review Changes ===") + "\n\n"
 
 	// Summary
 	classifiedText := "files"
 	if data.ClassifiedCount == 1 {
 		classifiedText = "file"
 	}
-	output += fmt.Sprintf("%d %s classified, %d skipped\n\n", data.ClassifiedCount, classifiedText, data.SkippedCount)
+	output += fmt.Sprintf("%s %s classified, %s skipped\n\n",
+		RenderSuccess(fmt.Sprintf("%d", data.ClassifiedCount)),
+		classifiedText,
+		RenderWarning(fmt.Sprintf("%d", data.SkippedCount)))
 
 	// If no items to show
 	if len(data.RenameItems) == 0 {
-		output += "No changes to review.\n\n"
-		output += "Press Esc to go back, q to quit\n"
+		output += RenderWarning("No changes to review.") + "\n\n"
+		output += RenderKeyHint("Press Esc to go back, q to quit") + "\n"
 		return output
 	}
 
@@ -156,48 +159,56 @@ func ReviewView(data *ReviewData) string {
 
 	// Show scroll indicator if needed
 	if data.ScrollOffset > 0 {
-		output += "  ... (more items above)\n"
+		output += RenderMuted("  ... (more items above)") + "\n"
 	}
 
 	// Display rename items in viewport
 	for i := startIdx; i < endIdx; i++ {
 		item := data.RenameItems[i]
 
-		// Selection indicator
-		indicator := "  "
-		if i == data.SelectedIndex {
-			indicator = "> "
-		}
-
-		output += indicator
-
 		// Show rename or skip
 		if item.IsSkipped {
-			output += fmt.Sprintf("%s [SKIPPED]\n", item.OriginalName)
+			if i == data.SelectedIndex {
+				output += fmt.Sprintf("%s %s %s\n",
+					RenderCursor(">"),
+					RenderMuted(item.OriginalName),
+					RenderWarning("[SKIPPED]"))
+			} else {
+				output += fmt.Sprintf("  %s %s\n",
+					RenderMuted(item.OriginalName),
+					RenderWarning("[SKIPPED]"))
+			}
 		} else {
-			output += fmt.Sprintf("%s -> %s", item.OriginalName, item.NewName)
+			line := fmt.Sprintf("%s %s %s",
+				RenderMuted(item.OriginalName),
+				RenderMuted("->"),
+				item.NewName)
 
 			// Add change tag if applicable
 			if item.ChangeType != "" {
-				output += fmt.Sprintf(" [%s]", item.ChangeType)
+				line += " " + RenderTag(item.ChangeType, item.ChangeType)
 			}
 
-			output += "\n"
+			if i == data.SelectedIndex {
+				output += fmt.Sprintf("%s %s\n", RenderCursor(">"), line)
+			} else {
+				output += fmt.Sprintf("  %s\n", line)
+			}
 		}
 	}
 
 	// Show scroll indicator if needed
 	if endIdx < len(data.RenameItems) {
-		output += "  ... (more items below)\n"
+		output += RenderMuted("  ... (more items below)") + "\n"
 	}
 
 	// Instructions
 	output += "\n"
-	output += "Navigation:\n"
-	output += "  Up/Down - Navigate list\n"
-	output += "  Enter - Proceed to rename files\n"
-	output += "  Esc - Return to classification (make more edits)\n"
-	output += "  q - Quit\n"
+	output += RenderMuted("Navigation:") + "\n"
+	output += RenderKeyHint("  Up/Down - Navigate list") + "\n"
+	output += RenderKeyHint("  Enter - Proceed to rename files") + "\n"
+	output += RenderKeyHint("  Esc - Return to classification (make more edits)") + "\n"
+	output += RenderKeyHint("  q - Quit") + "\n"
 
 	return output
 }

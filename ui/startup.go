@@ -66,43 +66,46 @@ func StartupView(data *StartupData) string {
 	var output string
 
 	// Header
-	output += "=== clip-tagger ===\n\n"
+	output += RenderHeader("=== clip-tagger ===") + "\n\n"
 
 	// Session status
 	if data.IsResume {
-		output += fmt.Sprintf("Found existing session (%d classified, %d remaining)\n", data.ClassifiedCount, data.RemainingCount)
+		output += fmt.Sprintf("Found existing session (%s classified, %s remaining)\n",
+			RenderSuccess(fmt.Sprintf("%d", data.ClassifiedCount)),
+			RenderWarning(fmt.Sprintf("%d", data.RemainingCount)))
 
 		// New files information
 		if data.NewFilesCount > 0 {
-			output += fmt.Sprintf("  %d new files detected\n", data.NewFilesCount)
+			output += fmt.Sprintf("  %s new files detected\n", RenderSuccess(fmt.Sprintf("%d", data.NewFilesCount)))
 		}
 
 		// Missing files warning
 		if data.MissingFilesCount > 0 {
-			output += fmt.Sprintf("  WARNING: %d missing file", data.MissingFilesCount)
+			warningText := fmt.Sprintf("WARNING: %d missing file", data.MissingFilesCount)
 			if data.MissingFilesCount > 1 {
-				output += "s"
+				warningText += "s"
 			}
-			output += " (previously classified but not found)\n"
+			warningText += " (previously classified but not found)"
+			output += fmt.Sprintf("  %s\n", RenderDanger(warningText))
 		}
 	} else {
-		output += "New session\n"
+		output += RenderSubheader("New session") + "\n"
 	}
 
 	// File count
-	output += fmt.Sprintf("\nTotal: %d files\n", data.TotalFiles)
+	output += fmt.Sprintf("\n%s %s files\n", RenderMuted("Total:"), RenderHighlight(fmt.Sprintf("%d", data.TotalFiles)))
 
 	// Sorting information
-	output += fmt.Sprintf("Sorted by: %s\n", data.SortBy)
+	output += fmt.Sprintf("%s %s\n", RenderMuted("Sorted by:"), data.SortBy)
 
 	// Instructions
 	output += "\n"
 	if data.IsResume {
-		output += "Press Enter to continue classification\n"
+		output += RenderKeyHint("Press Enter to continue classification") + "\n"
 	} else {
-		output += "Press Enter to start classification\n"
+		output += RenderKeyHint("Press Enter to start classification") + "\n"
 	}
-	output += "Press 'q' or Ctrl+C to quit\n"
+	output += RenderKeyHint("Press 'q' or Ctrl+C to quit") + "\n"
 
 	return output
 }

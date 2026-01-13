@@ -1,7 +1,12 @@
 // state/types.go
 package state
 
-import "github.com/google/uuid"
+import (
+	"fmt"
+	"path/filepath"
+
+	"github.com/google/uuid"
+)
 
 // SortBy defines how files should be sorted
 type SortBy string
@@ -107,4 +112,55 @@ func (s *State) AddOrUpdateClassification(filename, groupID string) {
 		GroupID:    groupID,
 		TakeNumber: takeNum,
 	})
+}
+
+// RepairRenamedFiles attempts to fix Classifications that reference old filenames
+// by matching them to renamed files that follow the [XX_YY] Name pattern
+func (s *State) RepairRenamedFiles(scannedFiles []string) int {
+	// Build map of scanned files for quick lookup
+	scannedMap := make(map[string]bool)
+	for _, f := range scannedFiles {
+		scannedMap[f] = true
+	}
+
+	repairedCount := 0
+
+	// Check each Classification
+	for i := range s.Classifications {
+		classification := &s.Classifications[i]
+
+		// Skip if file still exists (not missing)
+		if scannedMap[classification.File] {
+			continue
+		}
+
+		// File is missing - try to find renamed version
+		group := s.FindGroupByID(classification.GroupID)
+		if group == nil {
+			continue
+		}
+
+		// Generate expected renamed filename
+		ext := filepath.Ext(classification.File)
+		groupNum := formatNumber(group.Order)
+		takeNum := formatNumber(classification.TakeNumber)
+		expectedName := fmt.Sprintf("[%s_%s] %s%s", groupNum, takeNum, group.Name, ext)
+
+		// Check if expected renamed file exists
+		if scannedMap[expectedName] {
+			// Update classification to use new filename
+			classification.File = expectedName
+			repairedCount++
+		}
+	}
+
+	return repairedCount
+}
+
+// formatNumber formats a number with leading zero (01, 02, ..., 10, 11, ...)
+func formatNumber(n int) string {
+	if n < 10 {
+		return fmt.Sprintf("0%d", n)
+	}
+	return fmt.Sprintf("%d", n)
 }
