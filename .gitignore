@@ -17,3 +17,6 @@ go.work
 # State files (for testing)
 .clip-tagger-state.json
 .clip-tagger.lock
+
+# GoReleaser build artifacts
+dist/

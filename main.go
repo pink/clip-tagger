@@ -12,6 +12,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// Version information (set via ldflags during build)
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	// Parse command-line flags
 	config, err := flags.Parse()

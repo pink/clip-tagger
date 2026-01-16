@@ -1,0 +1,97 @@
+# GoReleaser configuration
+# Documentation: https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # Ensure dependencies are up to date
+    - go mod tidy
+    # Run tests before building
+    - go test ./...
+
+builds:
+  - id: clip-tagger
+    binary: clip-tagger
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Ignore combinations that don't make sense
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      # Strip debug info and set version
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: clip-tagger
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if eq .Os "windows" }}.zip
+      {{- else }}.tar.gz{{ end }}
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'typo'
+
+# Homebrew tap configuration
+brews:
+  - name: clip-tagger
+    # IMPORTANT: You need to create this repository first!
+    # Create a new GitHub repo called 'homebrew-clip-tagger'
+    # Then update this with your username
+    repository:
+      owner: pink
+      name: homebrew-clip-tagger
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+
+    # The folder inside the repository where the formula will be stored
+    directory: Formula
+
+    homepage: "https://github.com/pink/clip-tagger"
+    description: "Interactive CLI to organize and rename video clips with semantic groups and take numbers"
+
+    # License identifier
+    license: "MIT"
+
+    # Install instructions
+    install: |
+      bin.install "clip-tagger"
+
+    # Test that the binary works
+    test: |
+      system "#{bin}/clip-tagger", "--help"
+
+    # Additional dependencies (none needed for this project)
+    # dependencies:
+    #   - name: git

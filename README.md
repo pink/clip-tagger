@@ -85,40 +85,44 @@ The CLI keeps track of what's already been classified, so you will be able to re
 
 ## Installation
 
-### Prerequisites
-
-- Go 1.21 or later
-- A terminal emulator
-- Default video player configured (for preview feature)
-
-### Build from Source
+### Homebrew (macOS - Recommended)
 
 ```bash
-git clone https://github.com/yourusername/clip-tagger.git
+brew install pink/clip-tagger/clip-tagger
+```
+
+### Manual Installation
+
+#### Download Pre-built Binary
+
+1. Go to [Releases](https://github.com/pink/clip-tagger/releases)
+2. Download the binary for your platform:
+   - macOS (Apple Silicon): `clip-tagger_*_Darwin_arm64.tar.gz`
+   - macOS (Intel): `clip-tagger_*_Darwin_x86_64.tar.gz`
+   - Linux (64-bit): `clip-tagger_*_Linux_x86_64.tar.gz`
+   - Windows (64-bit): `clip-tagger_*_Windows_x86_64.zip`
+3. Extract and move to your PATH
+
+#### Build from Source
+
+If you have Go installed:
+
+```bash
+git clone https://github.com/pink/clip-tagger.git
 cd clip-tagger
-go build -o clip-tagger .
-```
-
-### Install Globally
-
-To install the binary globally so you can run `clip-tagger` from anywhere:
-
-```bash
-# From the project directory
 go install
-
-# Add to your ~/.zshrc (or ~/.bashrc on Linux) to make it permanent:
-echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshrc
-
-# Then reload your shell:
-source ~/.zshrc  # or source ~/.bashrc
 ```
 
-**Verify Installation**
+### Verify Installation
 
 ```bash
 clip-tagger --help
 ```
+
+### Prerequisites
+
+- A terminal emulator
+- Default video player configured (for preview feature)
 
 ## Overview
 
