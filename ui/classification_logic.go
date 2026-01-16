@@ -1,8 +1,23 @@
 // ui/classification_logic.go
 package ui
 
+// findNextUnclassifiedFile advances currentFileIndex to the next unclassified file
+// Returns true if found, false if all remaining files are classified
+func (m *Model) findNextUnclassifiedFile() bool {
+	for m.currentFileIndex < len(m.files) {
+		currentFile := m.files[m.currentFileIndex]
+		_, classified := m.state.GetClassification(currentFile)
+		if !classified {
+			return true
+		}
+		// This file is already classified, skip to next
+		m.currentFileIndex++
+	}
+	return false
+}
+
 // handleClassificationSameAsLast handles the "Same as Last" classification action
-// It finds the most recent classified file and assigns the current file to the same group
+// It uses the most recently classified group from the current session
 func (m Model) handleClassificationSameAsLast() Model {
 	if m.currentFileIndex >= len(m.files) {
 		// No current file to classify
@@ -11,33 +26,40 @@ func (m Model) handleClassificationSameAsLast() Model {
 
 	currentFile := m.files[m.currentFileIndex]
 
-	// Find the most recent classified file before current index
-	var lastGroupID string
-	for i := m.currentFileIndex - 1; i >= 0; i-- {
-		prevFile := m.files[i]
-		if classification, ok := m.state.GetClassification(prevFile); ok {
-			lastGroupID = classification.GroupID
-			break
+	// Use the last classified group ID from the current session
+	// If no group has been classified yet, fall back to searching backwards
+	lastGroupID := m.lastClassifiedGroupID
+	if lastGroupID == "" {
+		// Fallback: Find the most recent classified file before current index
+		for i := m.currentFileIndex - 1; i >= 0; i-- {
+			prevFile := m.files[i]
+			if classification, ok := m.state.GetClassification(prevFile); ok {
+				lastGroupID = classification.GroupID
+				break
+			}
 		}
 	}
 
 	// If we found a previous classification, apply it to current file
 	if lastGroupID != "" {
 		m.state.AddOrUpdateClassification(currentFile, lastGroupID)
+		// Update lastClassifiedGroupID for next "Same as Last"
+		m.lastClassifiedGroupID = lastGroupID
 	}
 
-	// Advance to next file
+	// Advance to next unclassified file
 	m.currentFileIndex++
+	hasNext := m.findNextUnclassifiedFile()
 	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
-	if m.currentFileIndex >= len(m.files) {
+	if !hasNext {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
 		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
-		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)
+		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex, m.lastClassifiedGroupID)
 	}
 
 	return m
@@ -54,19 +76,22 @@ func (m Model) handleGroupSelected(groupID string) Model {
 
 	// Classify the current file with the selected group
 	m.state.AddOrUpdateClassification(currentFile, groupID)
+	// Track for "Same as Last"
+	m.lastClassifiedGroupID = groupID
 
-	// Advance to next file
+	// Advance to next unclassified file
 	m.currentFileIndex++
+	hasNext := m.findNextUnclassifiedFile()
 	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
-	if m.currentFileIndex >= len(m.files) {
+	if !hasNext {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
 		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
-		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)
+		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex, m.lastClassifiedGroupID)
 		// Transition back to classification screen
 		m.currentScreen = ScreenClassification
 	}
@@ -86,19 +111,22 @@ func (m Model) handleGroupInserted(groupID, groupName string, order int) Model {
 	// The group has already been added to state by the GroupInserted message handler
 	// Now classify the current file with the new group
 	m.state.AddOrUpdateClassification(currentFile, groupID)
+	// Track for "Same as Last"
+	m.lastClassifiedGroupID = groupID
 
-	// Advance to next file
+	// Advance to next unclassified file
 	m.currentFileIndex++
+	hasNext := m.findNextUnclassifiedFile()
 	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
-	if m.currentFileIndex >= len(m.files) {
+	if !hasNext {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
 		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
-		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)
+		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex, m.lastClassifiedGroupID)
 		// Transition back to classification screen
 		m.currentScreen = ScreenClassification
 	}
@@ -118,18 +146,19 @@ func (m Model) handleClassificationSkip() Model {
 	// Add file to skipped list
 	m.state.Skipped = append(m.state.Skipped, currentFile)
 
-	// Advance to next file
+	// Advance to next unclassified file
 	m.currentFileIndex++
+	hasNext := m.findNextUnclassifiedFile()
 	m.state.CurrentIndex = m.currentFileIndex
 
 	// Check if we're done with all files
-	if m.currentFileIndex >= len(m.files) {
+	if !hasNext {
 		// Transition to review screen
 		m.currentScreen = ScreenReview
 		m.reviewData = NewReviewData(m.state, m.files)
 	} else {
 		// Update classification data for next file
-		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex)
+		m.classificationData = NewClassificationData(m.state, m.files, m.currentFileIndex, m.lastClassifiedGroupID)
 	}
 
 	return m

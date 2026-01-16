@@ -23,7 +23,7 @@ func TestClassificationLogic_SameAsLast(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 1 // Currently on file2.mp4
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform "Same as Last" action
 		updated := model.handleClassificationSameAsLast()
@@ -56,7 +56,7 @@ func TestClassificationLogic_SameAsLast(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4", "file4.mp4"}
 		model.currentFileIndex = 3 // Currently on file4.mp4
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform "Same as Last" action
 		updated := model.handleClassificationSameAsLast()
@@ -83,7 +83,7 @@ func TestClassificationLogic_SameAsLast(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4"}
 		model.currentFileIndex = 1
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform "Same as Last" action
 		updated := model.handleClassificationSameAsLast()
@@ -106,7 +106,7 @@ func TestClassificationLogic_SameAsLast(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4"}
 		model.currentFileIndex = 1
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform "Same as Last" action
 		updated := model.handleClassificationSameAsLast()
@@ -138,7 +138,7 @@ func TestClassificationLogic_SameAsLast(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4", "file4.mp4"}
 		model.currentFileIndex = 3 // Currently on file4.mp4
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform "Same as Last" action
 		updated := model.handleClassificationSameAsLast()
@@ -166,7 +166,7 @@ func TestClassificationLogic_SelectExisting(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform group selection
 		updated := model.handleGroupSelected(group.ID)
@@ -198,7 +198,7 @@ func TestClassificationLogic_SelectExisting(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4"}
 		model.currentFileIndex = 2
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform group selection
 		updated := model.handleGroupSelected(group.ID)
@@ -223,7 +223,7 @@ func TestClassificationLogic_SelectExisting(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform group selection
 		updated := model.handleGroupSelected(group.ID)
@@ -244,7 +244,7 @@ func TestClassificationLogic_SelectExisting(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform group selection
 		updated := model.handleGroupSelected(group.ID)
@@ -268,7 +268,7 @@ func TestClassificationLogic_SelectExisting(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenGroupSelection // User is on group selection screen
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform group selection
 		updated := model.handleGroupSelected(group.ID)
@@ -290,7 +290,7 @@ func TestClassificationLogic_CreateNewGroup(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Create new group and classify
 		newGroup := state.NewGroup("new_scene", 1)
@@ -319,7 +319,7 @@ func TestClassificationLogic_CreateNewGroup(t *testing.T) {
 		model.files = []string{"file1.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Create new group and add it to state (this mimics what GroupInserted message does)
 		newGroup := state.NewGroup("outro", 2)
@@ -354,7 +354,7 @@ func TestClassificationLogic_CreateNewGroup(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Create new group
 		newGroup := state.NewGroup("scene1", 1)
@@ -374,7 +374,7 @@ func TestClassificationLogic_CreateNewGroup(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Create new group
 		newGroup := state.NewGroup("scene1", 1)
@@ -397,7 +397,7 @@ func TestClassificationLogic_CreateNewGroup(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenGroupInsertion // User is on group insertion screen
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Create new group
 		newGroup := state.NewGroup("scene1", 1)
@@ -420,7 +420,7 @@ func TestClassificationLogic_Skip(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform skip action
 		updated := model.handleClassificationSkip()
@@ -442,7 +442,7 @@ func TestClassificationLogic_Skip(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform skip action
 		updated := model.handleClassificationSkip()
@@ -462,7 +462,7 @@ func TestClassificationLogic_Skip(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform skip action
 		updated := model.handleClassificationSkip()
@@ -481,7 +481,7 @@ func TestClassificationLogic_Skip(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Perform skip action
 		updated := model.handleClassificationSkip()
@@ -503,7 +503,7 @@ func TestClassificationLogic_Skip(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Skip first file
 		updated := model.handleClassificationSkip()
@@ -535,7 +535,7 @@ func TestClassificationLogic_TransitionToReview(t *testing.T) {
 		model.files = []string{"file1.mp4"} // Only one file
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Classify the last file
 		updated := model.handleGroupSelected(group.ID)
@@ -556,7 +556,7 @@ func TestClassificationLogic_TransitionToReview(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Classify first file
 		updated := model.handleGroupSelected(group.ID)
@@ -575,7 +575,7 @@ func TestClassificationLogic_TransitionToReview(t *testing.T) {
 		model.files = []string{"file1.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Skip the last file
 		updated := model.handleClassificationSkip()
@@ -597,7 +597,7 @@ func TestClassificationLogic_TransitionToReview(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4"}
 		model.currentFileIndex = 1
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Same as last on the last file
 		updated := model.handleClassificationSameAsLast()
@@ -622,7 +622,7 @@ func TestClassificationLogic_Integration(t *testing.T) {
 		model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4", "file4.mp4"}
 		model.currentFileIndex = 0
 		model.currentScreen = ScreenClassification
-		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+		model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 		// Classify file1 with group1
 		msg1 := GroupSelected{GroupID: group1.ID, GroupName: group1.Name}

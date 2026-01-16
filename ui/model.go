@@ -54,10 +54,11 @@ type Model struct {
 	groupInsertionData *GroupInsertionData
 	reviewData         *ReviewData
 	completionData     *CompletionData
-	files              []string // List of files being classified
-	currentFileIndex   int      // Current file index in files list
-	actionCounter      int      // Counter for periodic auto-saves
-	actionsPerSave     int      // Number of actions before auto-save (default: 5)
+	files                 []string // List of files being classified
+	currentFileIndex      int      // Current file index in files list
+	lastClassifiedGroupID string   // Most recently classified group ID (for "Same as Last")
+	actionCounter         int      // Counter for periodic auto-saves
+	actionsPerSave        int      // Number of actions before auto-save (default: 5)
 }
 
 // NewModel creates a new Model with the given state and directory
@@ -397,18 +398,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.startupData = NewStartupData(m.state, msg.ScannedFiles, msg.MergeResult)
 		// Store files for classification
 		m.files = msg.ScannedFiles
-		// Validate currentFileIndex bounds
+
+		// Find first unclassified file in the entire list
+		// Start from 0 since file order may have changed after rescan/resort
+		m.currentFileIndex = 0
+		for m.currentFileIndex < len(m.files) {
+			currentFile := m.files[m.currentFileIndex]
+			_, classified := m.state.GetClassification(currentFile)
+			if !classified {
+				// Found an unclassified file
+				break
+			}
+			// This file is classified, move to next
+			m.currentFileIndex++
+		}
+
+		// Update state's CurrentIndex to match
+		m.state.CurrentIndex = m.currentFileIndex
+
+		// Check if all files are classified
 		if m.currentFileIndex >= len(m.files) {
 			// All files classified, go directly to review
 			m.currentScreen = ScreenReview
+			m.reviewData = NewReviewData(m.state, m.files)
 		}
-		if m.currentFileIndex < 0 {
-			m.currentFileIndex = 0
-		}
+
 		return m, nil
 
 	case ClassificationInitialized:
-		m.classificationData = NewClassificationData(m.state, msg.Files, msg.FileIndex)
+		m.classificationData = NewClassificationData(m.state, msg.Files, msg.FileIndex, m.lastClassifiedGroupID)
 		return m, nil
 
 	case GroupSelectionInitialized:

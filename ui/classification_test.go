@@ -11,7 +11,7 @@ func TestClassificationData_NewSession(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4", "file2.mov", "file3.avi"}
 
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	if data.CurrentFile != "file1.mp4" {
 		t.Errorf("expected CurrentFile to be 'file1.mp4', got '%s'", data.CurrentFile)
@@ -42,7 +42,7 @@ func TestClassificationData_WithPreviousClassification(t *testing.T) {
 
 	files := []string{"file1.mp4", "file2.mov", "file3.avi"}
 
-	data := NewClassificationData(appState, files, 1)
+	data := NewClassificationData(appState, files, 1, "")
 
 	if data.CurrentFile != "file2.mov" {
 		t.Errorf("expected CurrentFile to be 'file2.mov', got '%s'", data.CurrentFile)
@@ -67,7 +67,7 @@ func TestClassificationData_FirstFileInResume(t *testing.T) {
 
 	files := []string{"file1.mp4", "file2.mov"}
 
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	if data.HasPreviousClassification {
 		t.Error("expected HasPreviousClassification to be false when there are no classifications")
@@ -77,7 +77,7 @@ func TestClassificationData_FirstFileInResume(t *testing.T) {
 func TestClassificationView_NewSession(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4", "file2.mov"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	view := ClassificationView(data)
 
@@ -126,7 +126,7 @@ func TestClassificationView_WithPreviousClassification(t *testing.T) {
 	appState.AddOrUpdateClassification("file1.mp4", group1.ID)
 
 	files := []string{"file1.mp4", "file2.mov"}
-	data := NewClassificationData(appState, files, 1)
+	data := NewClassificationData(appState, files, 1, "")
 
 	view := ClassificationView(data)
 
@@ -144,7 +144,7 @@ func TestClassificationView_Progress(t *testing.T) {
 	files := []string{"file1.mp4", "file2.mov", "file3.avi", "file4.mp4"}
 
 	t.Run("first file", func(t *testing.T) {
-		data := NewClassificationData(appState, files, 0)
+		data := NewClassificationData(appState, files, 0, "")
 		view := ClassificationView(data)
 		if !contains(view, "File 1 of 4") {
 			t.Error("expected view to show 'File 1 of 4'")
@@ -152,7 +152,7 @@ func TestClassificationView_Progress(t *testing.T) {
 	})
 
 	t.Run("middle file", func(t *testing.T) {
-		data := NewClassificationData(appState, files, 2)
+		data := NewClassificationData(appState, files, 2, "")
 		view := ClassificationView(data)
 		if !contains(view, "File 3 of 4") {
 			t.Error("expected view to show 'File 3 of 4'")
@@ -160,7 +160,7 @@ func TestClassificationView_Progress(t *testing.T) {
 	})
 
 	t.Run("last file", func(t *testing.T) {
-		data := NewClassificationData(appState, files, 3)
+		data := NewClassificationData(appState, files, 3, "")
 		view := ClassificationView(data)
 		if !contains(view, "File 4 of 4") {
 			t.Error("expected view to show 'File 4 of 4'")
@@ -171,7 +171,7 @@ func TestClassificationView_Progress(t *testing.T) {
 func TestClassificationUpdate_PreviewKey(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	result := ClassificationUpdate(data, "p")
 
@@ -190,7 +190,7 @@ func TestClassificationUpdate_SameAsLastKey(t *testing.T) {
 	appState.AddOrUpdateClassification("file1.mp4", group1.ID)
 
 	files := []string{"file1.mp4", "file2.mov"}
-	data := NewClassificationData(appState, files, 1)
+	data := NewClassificationData(appState, files, 1, "")
 
 	result := ClassificationUpdate(data, "1")
 
@@ -206,7 +206,7 @@ func TestClassificationUpdate_SameAsLastKey_NotAvailable(t *testing.T) {
 	// Test that '1' does nothing when there's no previous classification
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	result := ClassificationUpdate(data, "1")
 
@@ -221,7 +221,7 @@ func TestClassificationUpdate_SameAsLastKey_NotAvailable(t *testing.T) {
 func TestClassificationUpdate_SelectGroupKey(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	result := ClassificationUpdate(data, "2")
 
@@ -236,7 +236,7 @@ func TestClassificationUpdate_SelectGroupKey(t *testing.T) {
 func TestClassificationUpdate_CreateGroupKey(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	result := ClassificationUpdate(data, "3")
 
@@ -251,7 +251,7 @@ func TestClassificationUpdate_CreateGroupKey(t *testing.T) {
 func TestClassificationUpdate_SkipKey(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	result := ClassificationUpdate(data, "s")
 
@@ -266,7 +266,7 @@ func TestClassificationUpdate_SkipKey(t *testing.T) {
 func TestClassificationUpdate_QuitKey(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	t.Run("q key should quit", func(t *testing.T) {
 		result := ClassificationUpdate(data, "q")
@@ -294,7 +294,7 @@ func TestClassificationUpdate_QuitKey(t *testing.T) {
 func TestClassificationUpdate_OtherKeys(t *testing.T) {
 	appState := state.NewState("/test/dir", state.SortByModifiedTime)
 	files := []string{"file1.mp4"}
-	data := NewClassificationData(appState, files, 0)
+	data := NewClassificationData(appState, files, 0, "")
 
 	// Other keys should do nothing
 	result := ClassificationUpdate(data, "x")

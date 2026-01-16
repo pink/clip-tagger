@@ -37,7 +37,8 @@ type ClassificationUpdateResult struct {
 }
 
 // NewClassificationData creates classification data from state and file list
-func NewClassificationData(appState *state.State, files []string, fileIndex int) *ClassificationData {
+// lastClassifiedGroupID is the most recently classified group from the current session (optional)
+func NewClassificationData(appState *state.State, files []string, fileIndex int, lastClassifiedGroupID string) *ClassificationData {
 	if fileIndex < 0 || fileIndex >= len(files) {
 		// Return empty data if index is out of bounds
 		return &ClassificationData{}
@@ -51,9 +52,15 @@ func NewClassificationData(appState *state.State, files []string, fileIndex int)
 		FilePath:     filepath.Join(appState.Directory, currentFile),
 	}
 
-	// Check if there's a previous classification
-	if fileIndex > 0 {
-		// Look for the most recent classified file before current index
+	// Use the last classified group ID if provided, otherwise search backwards
+	if lastClassifiedGroupID != "" {
+		data.HasPreviousClassification = true
+		data.PreviousGroupID = lastClassifiedGroupID
+		if group := appState.FindGroupByID(lastClassifiedGroupID); group != nil {
+			data.PreviousGroupName = group.Name
+		}
+	} else if fileIndex > 0 {
+		// Fallback: Look for the most recent classified file before current index
 		for i := fileIndex - 1; i >= 0; i-- {
 			prevFile := files[i]
 			if classification, ok := appState.GetClassification(prevFile); ok {

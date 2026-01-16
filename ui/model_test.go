@@ -209,7 +209,7 @@ func TestModel_PreviewAction_FileNotFound(t *testing.T) {
 	model.files = files
 	model.currentFileIndex = 0
 	model.currentScreen = ScreenClassification
-	model.classificationData = NewClassificationData(appState, files, 0)
+	model.classificationData = NewClassificationData(appState, files, 0, "")
 
 	// Trigger preview action with 'p' key
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
@@ -245,7 +245,7 @@ func TestModel_PreviewAction_Success(t *testing.T) {
 	model.files = files
 	model.currentFileIndex = 0
 	model.currentScreen = ScreenClassification
-	model.classificationData = NewClassificationData(appState, files, 0)
+	model.classificationData = NewClassificationData(appState, files, 0, "")
 
 	// Trigger preview action with 'p' key
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
@@ -283,7 +283,7 @@ func TestModel_PreviewAction_ScreenNoChange(t *testing.T) {
 	model.files = files
 	model.currentFileIndex = 0
 	model.currentScreen = ScreenClassification
-	model.classificationData = NewClassificationData(appState, files, 0)
+	model.classificationData = NewClassificationData(appState, files, 0, "")
 
 	// Trigger preview action
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
@@ -513,7 +513,7 @@ func TestModel_AutoSaveOnClassificationActionSameAsLast(t *testing.T) {
 	model.currentScreen = ScreenClassification
 	model.files = []string{"file1.mp4", "file2.mp4"}
 	model.currentFileIndex = 1 // Currently on file2.mp4, file1.mp4 has classification
-	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 	model.actionsPerSave = 1 // Save after every action for this test
 
 	// Verify the classification data has previous classification (prerequisite)
@@ -552,7 +552,7 @@ func TestModel_AutoSaveOnClassificationActionSkip(t *testing.T) {
 	model.currentScreen = ScreenClassification
 	model.files = []string{"file1.mp4"}
 	model.currentFileIndex = 0
-	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 	model.actionsPerSave = 1 // Save after every action for this test
 
 	// Trigger "Skip" action with 's' key
@@ -587,7 +587,7 @@ func TestModel_PeriodicAutoSave(t *testing.T) {
 	// Need enough files so we don't transition to review screen during test
 	model.files = []string{"file1.mp4", "file2.mp4", "file3.mp4", "file4.mp4", "file5.mp4", "file6.mp4", "file7.mp4"}
 	model.currentFileIndex = 0
-	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 	model.actionsPerSave = 3 // Save every 3 actions
 
 	statePath := state.StateFilePath(tmpDir)
@@ -647,7 +647,7 @@ func TestModel_ScreenTransitionSave_FromClassification(t *testing.T) {
 	model.currentScreen = ScreenClassification
 	model.files = []string{"file1.mp4"}
 	model.currentFileIndex = 0
-	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 	// Transition from classification to review screen
 	msg := TransitionToScreen{Screen: ScreenReview}
@@ -680,7 +680,7 @@ func TestModel_ScreenTransitionSave_ToGroupSelection(t *testing.T) {
 	model.currentScreen = ScreenClassification
 	model.files = []string{"file1.mp4"}
 	model.currentFileIndex = 0
-	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 	// Trigger transition to group selection with '2' key
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}}
@@ -703,7 +703,7 @@ func TestModel_ScreenTransitionSave_ToGroupInsertion(t *testing.T) {
 	model.currentScreen = ScreenClassification
 	model.files = []string{"file1.mp4"}
 	model.currentFileIndex = 0
-	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 	// Trigger transition to group insertion with '3' key
 	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}}
@@ -839,7 +839,7 @@ func TestModel_TransitionToReviewScreen(t *testing.T) {
 	model.currentScreen = ScreenClassification
 	model.files = []string{"file1.mp4"}
 	model.currentFileIndex = 0
-	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex)
+	model.classificationData = NewClassificationData(appState, model.files, model.currentFileIndex, "")
 
 	// Classify the file by calling handleGroupSelected
 	model = model.handleGroupSelected(group1.ID)
