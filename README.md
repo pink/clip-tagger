@@ -38,7 +38,9 @@ In your terminal of choice, navigate to a directory that contains your video fil
 ```bash
 clip-tagger .
 ```
-<img width="572" height="358" alt="image" src="https://github.com/user-attachments/assets/f2b41c12-e6ef-44d4-9222-30632a1ca28e" />
+<p align="center">
+   <img width="572" height="358" alt="image" src="https://github.com/user-attachments/assets/f2b41c12-e6ef-44d4-9222-30632a1ca28e" />
+</p>
 
 
 
@@ -55,12 +57,16 @@ You have 4 choices:
 **2 - Select from existing groups**
 
 `(2)` will let you choose from one of the other previously used groups:
-<img width="572" height="356" alt="image" src="https://github.com/user-attachments/assets/ab6686b9-d2ed-4b00-9618-63dcd42ec2a5" />
+<p align="center">
+   <img width="572" height="356" alt="image" src="https://github.com/user-attachments/assets/ab6686b9-d2ed-4b00-9618-63dcd42ec2a5" />
+</p>
 
 **3 - Create new group**
 
 `(3)` will let you create a new group and choose where in the list it gets added:
-<img width="572" height="357" alt="image" src="https://github.com/user-attachments/assets/b091d55b-2a3f-41f2-830d-e24b78bbbd6d" />
+<p align="center">
+   <img width="572" height="357" alt="image" src="https://github.com/user-attachments/assets/b091d55b-2a3f-41f2-830d-e24b78bbbd6d" />
+</p>
 
 **s - Skip this file**
 
